@@ -1,0 +1,22 @@
+{
+  "name": "nanosignals",
+  "version": "0.0.1",
+  "main": "./dist/nanosignals.js",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest",
+    "bench": "vitest bench",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@preact/signals-core": "^1.8.0",
+    "solid-js": "^1.8.21",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.1",
+    "vitest": "^2.0.5",
+    "@reactively/core": "^0.0.8"
+  }
+}
