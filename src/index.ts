@@ -16,6 +16,8 @@ export class NanoSignal<T = unknown> {
 
   #effects: Array<NanoSignal> = [];
 
+  equals = (a1: unknown, a2: unknown) => a1 === a2; 
+
   constructor(value: (() => T) | T, effect?: boolean, defer?: boolean) {
     if (typeof value === "function") {
       this.#compute = value as (() => T);
@@ -69,7 +71,7 @@ export class NanoSignal<T = unknown> {
         if (notDirty) return -1;
         let prev = this.#cache, prevVer = this.#version;
         this.#update();
-        if (Object.is(prev, this.#cache)) {
+        if (this.equals(prev, this.#cache)) {
           this.#contentVersion = prevVer;
           return -1
         }
@@ -92,7 +94,7 @@ export class NanoSignal<T = unknown> {
   }
 
   set val(newValue: T | null) {
-    if (!Object.is(this.#cache, newValue)) {
+    if (!this.equals(this.#cache, newValue)) {
       this.#cache = newValue as T;
       this.#version = ++GLOBAL_V;
       CALL_V = this.#version;
@@ -110,6 +112,7 @@ interface NanoSignalOptions {
   effect?: boolean
   name?: string
   defer?: boolean
+  equals?: (a: unknown, b: unknown) => boolean
 }
 export function signal<T = unknown>(value: T | (() => T), options?: NanoSignalOptions): NanoSignal<T> {
   return new NanoSignal<T>(value, options?.effect, options?.defer)

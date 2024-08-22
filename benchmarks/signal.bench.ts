@@ -1,8 +1,8 @@
 import { assert, bench, describe } from 'vitest'
 import { signal as sig } from '../src';
-import { createComputed, createMemo, createRoot, createSignal } from "solid-js/dist/solid.cjs"
+import { createEffect, createMemo, createRoot, createSignal } from "solid-js/dist/solid.cjs"
 import { signal, computed, effect } from "@preact/signals-core";
-import { reactive } from "@reactively/core";
+import { reactive, stabilize } from "@reactively/core";
 
 describe('deep get', () => {
   bench('nanosignals', () => {
@@ -261,20 +261,20 @@ describe('direct effect', () => {
     const s1 = sig(1);
     const s2 = sig(1);
     let result = 0;
-    sig(() => result = s1.val + s2.val, { effect: true });
+    sig(() => { result = s1.val + s2.val }, { effect: true });
     s2.val = s2.val + 1;
     assert(result === 3);
   });
 
   bench("solid-js", () => {
+    let result = 0;
     createRoot(() => {
       const [s1, setS1] = createSignal(1);
       const [s2, setS2] = createSignal(1);
-      let result = 0;
-      createComputed(() => result = s1() + s2());
+      createEffect(() => { result = s1() + s2() });
       setS2(s2() + 1);
-      assert(result === 3);
     })
+    assert(result === 3);
   });
 
   bench("preact", () => {
@@ -292,6 +292,7 @@ describe('direct effect', () => {
     let result = 0;
     reactive(() => { result = s1.value + s2.value }, { effect: true });
     s2.value = s2.value + 1;
+    stabilize();
     assert(result === 3);
   });
 })
@@ -305,10 +306,8 @@ describe('tree effects', () => {
     const s4 = sig(1);
     const s5 = sig(() => s1.val + s2.val);
     const s6 = sig(() => s3.val + s4.val);
-    sig(() => s5.val + s6.val, { effect: true });
-    s4.val = s4.val + 1;
+    sig(() => { s5.val + s6.val }, { effect: true });
     s3.val = s3.val + 1;
-    s2.val = s2.val + 1;
     s1.val = s1.val + 1;
   });
 
@@ -320,10 +319,8 @@ describe('tree effects', () => {
       const [s4, setS4] = createSignal(1);
       const s5 = createMemo(() => s1() + s2());
       const s6 = createMemo(() => s3() + s4());
-      createComputed(() => s5() + s6());
-      setS4(s4() + 1);
+      createEffect(() => { s5() + s6() });
       setS3(s3() + 1);
-      setS2(s2() + 1);
       setS1(s1() + 1);
     })
   });
@@ -336,9 +333,7 @@ describe('tree effects', () => {
     const s5 = computed(() => s1.value + s2.value);
     const s6 = computed(() => s3.value + s4.value);
     effect(() => { s5.value + s6.value });
-    s4.value = s4.value + 1;
     s3.value = s3.value + 1;
-    s2.value = s2.value + 1;
     s1.value = s1.value + 1;
   });
 
@@ -350,10 +345,9 @@ describe('tree effects', () => {
     const s5 = reactive(() => s1.value + s2.value);
     const s6 = reactive(() => s3.value + s4.value);
     reactive(() => { s5.value + s6.value }, { effect: true });
-    s4.value = s4.value + 1;
     s3.value = s3.value + 1;
-    s2.value = s2.value + 1;
     s1.value = s1.value + 1;
+    stabilize();
   });
 })
 
@@ -376,7 +370,7 @@ describe('effect with conditions', () => {
       const [s3] = createSignal("b");
       const s4 = createMemo(() => s2());
       const s5 = createMemo(() => s3());
-      createComputed(() => s1() ? s4() : s5());
+      createEffect(() => s1() ? s4() : s5());
       setS1(false);
       setS1(true);
     })
@@ -402,6 +396,7 @@ describe('effect with conditions', () => {
     reactive(() => { s1.value ? s4.value : s5.value }, { effect: true });
     s1.value = false;
     s1.value = true;
+    stabilize();
   });
 })
 
@@ -433,7 +428,7 @@ describe('wide effects', () => {
       const [s7] = createSignal(1);
       const [s8] = createSignal(1);
       const [s9, setS9] = createSignal(1);
-      createComputed(() => s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8() + s9() + s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8() + s9());
+      createEffect(() => s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8() + s9() + s1() + s2() + s3() + s4() + s5() + s6() + s7() + s8() + s9());
       setS1(s1() + 1);
       setS5(s5() + 1);
       setS9(s9() + 1);
@@ -470,5 +465,6 @@ describe('wide effects', () => {
     s1.value = s1.value + 1;
     s5.value = s5.value + 1;
     s9.value = s9.value + 1;
+    stabilize();
   })
-}) 
+})
