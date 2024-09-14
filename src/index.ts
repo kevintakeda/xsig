@@ -1,7 +1,10 @@
 let TRACK_DEPS: undefined | Array<NanoSignal>,
   PREV_DEPS: undefined | Array<NanoSignal>,
-  GLOBAL_V = 0, CALL_V = 1,
-  STATE_ACCESSES: Array<NanoSignal> | undefined;
+  GLOBAL_V = 0,
+  CALL_V = 1,
+  STATE_ACCESSES: Array<NanoSignal> | undefined,
+  EFFECT_QUEUE: Array<NanoSignal> = [],
+  QUEUED = 0;
 
 export class NanoSignal<T = unknown> {
   #effect: boolean | undefined;
@@ -11,21 +14,20 @@ export class NanoSignal<T = unknown> {
   #deps: Array<NanoSignal> = [];
   #states: Array<NanoSignal> = [];
 
-  #version: number = 0;
+  version: number = 0;
   #contentVersion: number = 0;
 
   #effects: Array<NanoSignal> = [];
 
-  equals = (a1: unknown, a2: unknown) => a1 === a2; 
+  equals = (a1: unknown, a2: unknown) => a1 === a2;
+  autoFlush = false;
 
-  constructor(value: (() => T) | T, effect?: boolean, defer?: boolean) {
+  constructor(value: (() => T) | T, effect?: boolean) {
     if (typeof value === "function") {
-      this.#compute = value as (() => T);
+      this.#compute = value as () => T;
       if (effect) {
         this.#effect = effect;
-        STATE_ACCESSES = [];
-        if (!defer) this.#update();
-        STATE_ACCESSES = undefined;
+        EFFECT_QUEUE.push(this);
       }
     } else {
       this.#cache = value;
@@ -35,85 +37,103 @@ export class NanoSignal<T = unknown> {
   // Should only be called if 'compute' is defined.
   #update() {
     PREV_DEPS = TRACK_DEPS;
-    this.#deps = []
+    this.#deps = [];
     TRACK_DEPS = this.#deps;
 
     this.#cache = this.#compute!();
 
     if (STATE_ACCESSES && this.#effect) {
-      STATE_ACCESSES.forEach(a => {
+      STATE_ACCESSES.forEach((a) => {
         if (this.#states.indexOf(a) === -1) {
           this.#states.push(a);
-          if (a.#effects.indexOf(this) === -1) a.#effects.push(this)
+          if (a.#effects.indexOf(this) === -1) a.#effects.push(this);
         }
-      })
+      });
     }
 
-    this.#version = CALL_V;
-    this.#contentVersion = this.#version;
+    this.version = CALL_V;
+    this.#contentVersion = this.version;
     TRACK_DEPS = PREV_DEPS;
     PREV_DEPS = undefined;
   }
 
-  #tryUpdate(version: number): number {
+  tryUpdate(version: number): number {
     // Return -1 if update is not needed, or the version to be updated.
     let ourVersion = this.#contentVersion;
     if (version >= ourVersion) {
       if (this.#compute) {
-        const notDirty = !(this.#version === 0 ||
-          this.#deps.some(dep => {
-            const depVersion = dep.#tryUpdate(version);
+        const notDirty = !(
+          this.version === 0 ||
+          this.#deps.some((dep) => {
+            const depVersion = dep.tryUpdate(version);
             if (depVersion > ourVersion) {
               ourVersion = depVersion;
-              return true
+              return true;
             }
-          }));
+          })
+        );
         if (notDirty) return -1;
-        let prev = this.#cache, prevVer = this.#version;
+        let prev = this.#cache,
+          prevVer = this.version;
         this.#update();
         if (this.equals(prev, this.#cache)) {
           this.#contentVersion = prevVer;
-          return -1
+          return -1;
         }
-      } else return -1
+      } else return -1;
     }
-    return ourVersion
+    return ourVersion;
   }
 
   get val(): T {
     if (TRACK_DEPS && TRACK_DEPS.indexOf(this) === -1) TRACK_DEPS.push(this);
-
-    if (this.#version !== CALL_V) {
-      if (this.#compute) {
-        this.#tryUpdate(this.#version);
-      } else if (STATE_ACCESSES) {
-        STATE_ACCESSES.push(this);
-      }
+    if (this.version !== CALL_V && this.#compute) {
+      this.tryUpdate(this.version);
     }
-    return this.#cache as T
+    if (STATE_ACCESSES && STATE_ACCESSES.indexOf(this) === -1) {
+      STATE_ACCESSES.push(this);
+    }
+    return this.#cache as T;
   }
 
   set val(newValue: T | null) {
     if (!this.equals(this.#cache, newValue)) {
       this.#cache = newValue as T;
-      this.#version = ++GLOBAL_V;
-      CALL_V = this.#version;
-      this.#contentVersion = this.#version
+      this.version = ++GLOBAL_V;
+      CALL_V = this.version;
+      this.#contentVersion = this.version;
       this.#compute = undefined;
-
-      STATE_ACCESSES = [];
-      this.#effects.forEach(node => node.#tryUpdate(node.#version));
-      STATE_ACCESSES = undefined;
+      this.#effects.forEach((node) => {
+        if (EFFECT_QUEUE.indexOf(node) === -1) {
+          EFFECT_QUEUE.push(node);
+        }
+      });
+      if (this.autoFlush && !QUEUED) {
+        QUEUED = 1;
+        queueMicrotask(() => (flushEffects(), (QUEUED = 0)));
+      }
     }
   }
 }
 
-interface NanoSignalOptions {
-  effect?: boolean
-  name?: string
-  defer?: boolean
-  equals?: (a: unknown, b: unknown) => boolean
+export function flushEffects() {
+  STATE_ACCESSES = [];
+  EFFECT_QUEUE.forEach((node) => node.tryUpdate(node.version));
+  STATE_ACCESSES = undefined;
+  EFFECT_QUEUE = [];
 }
-export function signal<T = unknown>(value: T | (() => T), options?: NanoSignalOptions): NanoSignal<T> {
-  return new NanoSignal<T>(value, options?.effect, options?.defer)
+
+export interface NanoSignalOptions {
+  effect?: boolean;
+  name?: string;
+  equals?: (a: unknown, b: unknown) => boolean;
+}
+
+export function signal<T = unknown>(
+  value: T | (() => T),
+  options?: NanoSignalOptions
+): NanoSignal<T> {
+  const signal = new NanoSignal<T>(value, options?.effect);
+  if (options?.equals) signal.equals = options.equals;
+  return signal;
 }
