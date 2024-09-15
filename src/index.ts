@@ -1,5 +1,6 @@
 let TRACK_DEPS: undefined | Array<NanoSignal>,
   PREV_DEPS: undefined | Array<NanoSignal>,
+  TRACK_ALL: undefined | Array<NanoSignal>,
   GLOBAL_V = 0,
   CALL_V = 1,
   EFFECT_QUEUE: Array<NanoSignal> = [],
@@ -41,7 +42,7 @@ export class NanoSignal<T = unknown> {
     this.#cache = this.#compute!();
 
     if (this.#effect) {
-      TRACK_DEPS?.forEach((a) => {
+      TRACK_ALL?.forEach((a) => {
         if (a.#effects.indexOf(this) === -1) a.#effects.push(this);
       });
     }
@@ -83,6 +84,7 @@ export class NanoSignal<T = unknown> {
 
   get val(): T {
     if (TRACK_DEPS && TRACK_DEPS.indexOf(this) === -1) TRACK_DEPS.push(this);
+    if (TRACK_ALL && TRACK_ALL.indexOf(this) === -1) TRACK_ALL.push(this);
     if (this.#compute && this.#version !== CALL_V) {
       this.#tryUpdate(this.#version);
     }
@@ -110,7 +112,11 @@ export class NanoSignal<T = unknown> {
 }
 
 export function flushEffects() {
-  EFFECT_QUEUE.forEach((node) => node.val);
+  EFFECT_QUEUE.forEach((node) => {
+    TRACK_ALL = [];
+    node.val;
+    TRACK_ALL = undefined;
+  });
   EFFECT_QUEUE = [];
 }
 

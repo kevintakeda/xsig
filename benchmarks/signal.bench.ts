@@ -362,3 +362,83 @@ describe("wide effects", () => {
     op(MaverickSignals);
   });
 });
+
+describe("500 computations", () => {
+  function op(api: SignalApi) {
+    api.root(() => {
+      const s1 = api.signal(1);
+      const s2 = api.signal(1);
+      const s3 = api.signal(1);
+      const computations: Array<any> = [];
+      api.runSync(() => {
+        for (let i = 0; i < 500; i++) {
+          computations.push(api.computed(() => s1.get() * s2.get() * s3.get()));
+        }
+      });
+      api.runSync(() => {
+        s3.set(Math.random());
+        s2.set(Math.random());
+        s1.set(Math.random());
+      });
+      computations.forEach((el) => el.get());
+    });
+  }
+  bench("nanosignals", () => {
+    op(NanoSignals);
+  });
+
+  bench("solid-js", () => {
+    op(SolidSignals);
+  });
+
+  bench("preact", () => {
+    op(PreactSignals);
+  });
+
+  bench("reactively", () => {
+    op(Reactively);
+  });
+
+  bench("@maverick-js/signals", () => {
+    op(MaverickSignals);
+  });
+});
+
+describe("500 effects", () => {
+  function op(api: SignalApi) {
+    api.root(() => {
+      const s1 = api.signal(1);
+      const s2 = api.signal(1);
+      const s3 = api.signal(1);
+      api.runSync(() => {
+        for (let i = 0; i < 500; i++) {
+          api.effect(() => s1.get() * s2.get() * s3.get());
+        }
+      });
+      api.runSync(() => {
+        s3.set(Math.random());
+        s2.set(Math.random());
+        s1.set(Math.random());
+      });
+    });
+  }
+  bench("nanosignals", () => {
+    op(NanoSignals);
+  });
+
+  bench("solid-js", () => {
+    op(SolidSignals);
+  });
+
+  bench("preact", () => {
+    op(PreactSignals);
+  });
+
+  bench("reactively", () => {
+    op(Reactively);
+  });
+
+  bench("@maverick-js/signals", () => {
+    op(MaverickSignals);
+  });
+});

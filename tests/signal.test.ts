@@ -420,38 +420,20 @@ describe("effects", () => {
     expect(result.val).toBe(1);
   });
 
-  // test("unsubscribe invisible nested dependencies (effects)", () => {
-  //   const a = signal(true);
-  //   const b = signal(true);
-  //   const c = signal("c");
-  //   const d = signal(() => b.val, { effect: true });
-  //   const e = signal(() => c.val, { effect: true });
-  //   const fSpy = vi.fn(() => {
-  //     if (a.val) {
-  //       if (b.val) {
-  //       }
-  //     }
-  //   });
-  //   const f = signal(fSpy, { effect: true });
-
-  //   expect(f.val).toBe("b");
-  //   expect(fSpy).toHaveBeenCalledTimes(1);
-  //   a.val = false;
-  //   expect(f.val).toBe("c");
-  //   expect(fSpy).toHaveBeenCalledTimes(2);
-  //   a.val = true;
-  //   expect(f.val).toBe("b");
-  //   c.val = "c!";
-  //   c.val = "c!!";
-  //   expect(fSpy).toHaveBeenCalledTimes(3);
-  //   a.val = false;
-  //   expect(f.val).toBe("c!!");
-  //   b.val = "b!";
-  //   b.val = "b!!";
-  //   expect(fSpy).toHaveBeenCalledTimes(4);
-  //   a.val = false;
-  //   expect(fSpy).toHaveBeenCalledTimes(4);
-  //   b.val = "b!!!";
-  //   expect(fSpy).toHaveBeenCalledTimes(4);
-  // });
+  test("effect with nested dependencies", () => {
+    const a = signal(2);
+    const spyB = vi.fn(() => a.val + 1);
+    const b = signal(spyB);
+    const spyC = vi.fn(() => b.val);
+    const c = signal(spyC);
+    const spyD = vi.fn(() => c.val);
+    const d = signal(spyD);
+    const spyE = vi.fn(() => d.val);
+    signal(spyE, { effect: true });
+    flushEffects();
+    expect(spyE).toHaveBeenCalledTimes(1);
+    a.val = 4;
+    flushEffects();
+    expect(spyE).toHaveBeenCalledTimes(2);
+  });
 });
