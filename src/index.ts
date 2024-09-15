@@ -14,7 +14,7 @@ export class NanoSignal<T = unknown> {
   #deps: Array<NanoSignal> = [];
   #states: Array<NanoSignal> = [];
 
-  version: number = 0;
+  #version: number = 0;
   #contentVersion: number = 0;
 
   #effects: Array<NanoSignal> = [];
@@ -51,21 +51,22 @@ export class NanoSignal<T = unknown> {
       });
     }
 
-    this.version = CALL_V;
-    this.#contentVersion = this.version;
+    this.#version = CALL_V;
+    this.#contentVersion = this.#version;
     TRACK_DEPS = PREV_DEPS;
     PREV_DEPS = undefined;
   }
 
-  tryUpdate(version: number): number {
+  #tryUpdate(version?: number): number {
     // Return -1 if update is not needed, or the version to be updated.
+    if (!version) version = this.#version;
     let ourVersion = this.#contentVersion;
     if (version >= ourVersion) {
       if (this.#compute) {
         const notDirty = !(
-          this.version === 0 ||
+          this.#version === 0 ||
           this.#deps.some((dep) => {
-            const depVersion = dep.tryUpdate(version);
+            const depVersion = dep.#tryUpdate(version);
             if (depVersion > ourVersion) {
               ourVersion = depVersion;
               return true;
@@ -74,7 +75,7 @@ export class NanoSignal<T = unknown> {
         );
         if (notDirty) return -1;
         let prev = this.#cache,
-          prevVer = this.version;
+          prevVer = this.#version;
         this.#update();
         if (this.equals(prev, this.#cache)) {
           this.#contentVersion = prevVer;
@@ -87,8 +88,8 @@ export class NanoSignal<T = unknown> {
 
   get val(): T {
     if (TRACK_DEPS && TRACK_DEPS.indexOf(this) === -1) TRACK_DEPS.push(this);
-    if (this.version !== CALL_V && this.#compute) {
-      this.tryUpdate(this.version);
+    if (this.#version !== CALL_V && this.#compute) {
+      this.#tryUpdate(this.#version);
     }
     if (STATE_ACCESSES && STATE_ACCESSES.indexOf(this) === -1) {
       STATE_ACCESSES.push(this);
@@ -99,9 +100,9 @@ export class NanoSignal<T = unknown> {
   set val(newValue: T | null) {
     if (!this.equals(this.#cache, newValue)) {
       this.#cache = newValue as T;
-      this.version = ++GLOBAL_V;
-      CALL_V = this.version;
-      this.#contentVersion = this.version;
+      this.#version = ++GLOBAL_V;
+      CALL_V = this.#version;
+      this.#contentVersion = this.#version;
       this.#compute = undefined;
       this.#effects.forEach((node) => {
         if (EFFECT_QUEUE.indexOf(node) === -1) {
@@ -118,7 +119,7 @@ export class NanoSignal<T = unknown> {
 
 export function flushEffects() {
   STATE_ACCESSES = [];
-  EFFECT_QUEUE.forEach((node) => node.tryUpdate(node.version));
+  EFFECT_QUEUE.forEach((node) => node.val);
   STATE_ACCESSES = undefined;
   EFFECT_QUEUE = [];
 }
