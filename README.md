@@ -1,7 +1,7 @@
 # nanosignals
 A very tiny (~0.5 KB minzipped) and experimental implementation of signals, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
-# Get started
+## Example
 ```js
   const counter = signal(1);
   const double = signal(() => counter.val * 2);
