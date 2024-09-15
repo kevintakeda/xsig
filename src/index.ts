@@ -2,7 +2,6 @@ let TRACK_DEPS: undefined | Array<NanoSignal>,
   PREV_DEPS: undefined | Array<NanoSignal>,
   GLOBAL_V = 0,
   CALL_V = 1,
-  STATE_ACCESSES: Array<NanoSignal> | undefined,
   EFFECT_QUEUE: Array<NanoSignal> = [],
   QUEUED = 0;
 
@@ -12,7 +11,6 @@ export class NanoSignal<T = unknown> {
 
   #cache: T | undefined;
   #deps: Array<NanoSignal> = [];
-  #states: Array<NanoSignal> = [];
 
   #version: number = 0;
   #contentVersion: number = 0;
@@ -42,12 +40,9 @@ export class NanoSignal<T = unknown> {
 
     this.#cache = this.#compute!();
 
-    if (STATE_ACCESSES && this.#effect) {
-      STATE_ACCESSES.forEach((a) => {
-        if (this.#states.indexOf(a) === -1) {
-          this.#states.push(a);
-          if (a.#effects.indexOf(this) === -1) a.#effects.push(this);
-        }
+    if (this.#effect) {
+      TRACK_DEPS?.forEach((a) => {
+        if (a.#effects.indexOf(this) === -1) a.#effects.push(this);
       });
     }
 
@@ -88,11 +83,8 @@ export class NanoSignal<T = unknown> {
 
   get val(): T {
     if (TRACK_DEPS && TRACK_DEPS.indexOf(this) === -1) TRACK_DEPS.push(this);
-    if (this.#version !== CALL_V && this.#compute) {
+    if (this.#compute && this.#version !== CALL_V) {
       this.#tryUpdate(this.#version);
-    }
-    if (STATE_ACCESSES && STATE_ACCESSES.indexOf(this) === -1) {
-      STATE_ACCESSES.push(this);
     }
     return this.#cache as T;
   }
@@ -118,9 +110,7 @@ export class NanoSignal<T = unknown> {
 }
 
 export function flushEffects() {
-  STATE_ACCESSES = [];
   EFFECT_QUEUE.forEach((node) => node.val);
-  STATE_ACCESSES = undefined;
   EFFECT_QUEUE = [];
 }
 

@@ -274,7 +274,7 @@ describe("effects", () => {
     const c = signal("c");
     const fSpy = vi.fn(() => (a.val ? b.val : c.val));
     const f = signal(fSpy, { effect: true });
-
+    expect(fSpy).toHaveBeenCalledTimes(0);
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(1);
     a.val = false;
@@ -282,13 +282,18 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(2);
     a.val = true;
     expect(f.val).toBe("b");
+    expect(fSpy).toHaveBeenCalledTimes(3);
     c.val = "c!";
     c.val = "c!!";
+    flushEffects();
+    expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
     a.val = false;
     expect(f.val).toBe("c!!");
+    expect(fSpy).toHaveBeenCalledTimes(4);
     b.val = "b!";
     b.val = "b!!";
+    flushEffects();
     expect(fSpy).toHaveBeenCalledTimes(4);
     a.val = false;
     expect(fSpy).toHaveBeenCalledTimes(4);
@@ -414,4 +419,39 @@ describe("effects", () => {
     flushEffects();
     expect(result.val).toBe(1);
   });
+
+  // test("unsubscribe invisible nested dependencies (effects)", () => {
+  //   const a = signal(true);
+  //   const b = signal(true);
+  //   const c = signal("c");
+  //   const d = signal(() => b.val, { effect: true });
+  //   const e = signal(() => c.val, { effect: true });
+  //   const fSpy = vi.fn(() => {
+  //     if (a.val) {
+  //       if (b.val) {
+  //       }
+  //     }
+  //   });
+  //   const f = signal(fSpy, { effect: true });
+
+  //   expect(f.val).toBe("b");
+  //   expect(fSpy).toHaveBeenCalledTimes(1);
+  //   a.val = false;
+  //   expect(f.val).toBe("c");
+  //   expect(fSpy).toHaveBeenCalledTimes(2);
+  //   a.val = true;
+  //   expect(f.val).toBe("b");
+  //   c.val = "c!";
+  //   c.val = "c!!";
+  //   expect(fSpy).toHaveBeenCalledTimes(3);
+  //   a.val = false;
+  //   expect(f.val).toBe("c!!");
+  //   b.val = "b!";
+  //   b.val = "b!!";
+  //   expect(fSpy).toHaveBeenCalledTimes(4);
+  //   a.val = false;
+  //   expect(fSpy).toHaveBeenCalledTimes(4);
+  //   b.val = "b!!!";
+  //   expect(fSpy).toHaveBeenCalledTimes(4);
+  // });
 });

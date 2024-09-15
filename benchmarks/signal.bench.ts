@@ -182,7 +182,7 @@ describe("wide set+get", () => {
   });
 });
 
-describe("direct effect", () => {
+describe("simple effect", () => {
   function op(api: SignalApi) {
     let result = 0;
     api.root(() => {
@@ -192,9 +192,17 @@ describe("direct effect", () => {
       });
       api.runSync(() => {
         s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
+        s.set(s.get() + 1);
       });
     });
-    assert(result === 2);
+    assert(result === 10);
   }
   bench("nanosignals", () => {
     op(NanoSignals);
