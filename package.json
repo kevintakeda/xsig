@@ -2,6 +2,7 @@
   "name": "nanosignals",
   "version": "0.0.1",
   "main": "./dist/nanosignals.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -15,12 +16,12 @@
     "@maverick-js/signals": "^6.0.0",
     "@preact/signals-core": "^1.8.0",
     "@reactively/core": "^0.0.8",
-    "solid-js": "^1.8.22",
-    "typescript": "^5.6.2",
-    "vite": "^5.4.5",
-    "vitest": "^2.1.1"
-  },
-  "dependencies": {
-    "@types/node": "^22.5.5"
+    "@types/node": "^22.8.6",
+    "signal-polyfill": "^0.2.1",
+    "solid-js": "^1.9.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^2.1.4"
   }
 }

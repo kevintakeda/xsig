@@ -1,4 +1,5 @@
-import { flushEffects, signal } from "../src";
+import { tick, NanoSignal, signal } from "../src";
+import { Signal } from "signal-polyfill";
 import { Reactive, stabilize } from "@reactively/core";
 import {
   signal as psignal,
@@ -18,7 +19,7 @@ import {
   signal as msignal,
   computed as mcomputed,
   effect as meffect,
-  tick,
+  tick as mtick,
 } from "@maverick-js/signals";
 
 export interface SignalApi {
@@ -48,10 +49,10 @@ export const NanoSignals: SignalApi = {
       get: () => S.val,
     };
   },
-  effect: (fn) => signal(fn, { effect: true }),
+  effect: (fn) => new NanoSignal(fn, { effect: true }),
   runSync: (fn) => {
     fn();
-    flushEffects();
+    tick();
   },
   root: (fn) => fn(),
 };
@@ -133,7 +134,68 @@ export const MaverickSignals: SignalApi = {
   effect: (fn) => meffect(fn),
   runSync: (fn) => {
     fn();
-    tick();
+    mtick();
+  },
+  root: (fn) => mroot(fn),
+};
+
+namespace SignalUtils {
+  let needsEnqueue = true;
+
+  const w = new Signal.subtle.Watcher(() => {
+    // if (needsEnqueue) {
+    //   needsEnqueue = false;
+    //   queueMicrotask(processPending);
+    // }
+  });
+
+  export function processPending() {
+    needsEnqueue = true;
+
+    for (const s of w.getPending()) {
+      s.get();
+    }
+
+    w.watch();
+  }
+
+  export function effect(callback) {
+    let cleanup;
+
+    const computed = new Signal.Computed(() => {
+      typeof cleanup === "function" && cleanup();
+      cleanup = callback();
+    });
+
+    w.watch(computed);
+    // computed.get();
+
+    return () => {
+      w.unwatch(computed);
+      typeof cleanup === "function" && cleanup();
+      cleanup = undefined;
+    };
+  }
+}
+
+export const SignalPolyfill: SignalApi = {
+  signal: (val) => {
+    const S = new Signal.State(val);
+    return {
+      set: (v) => S.set(v),
+      get: () => S.get(),
+    };
+  },
+  computed: (fn) => {
+    const S = new Signal.Computed(fn);
+    return {
+      get: () => S.get(),
+    };
+  },
+  effect: (fn) => SignalUtils.effect(fn),
+  runSync: (fn) => {
+    fn();
+    SignalUtils.processPending();
   },
   root: (fn) => mroot(fn),
 };

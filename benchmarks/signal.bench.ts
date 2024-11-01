@@ -5,6 +5,7 @@ import {
   PreactSignals,
   Reactively,
   SignalApi,
+  SignalPolyfill,
   SolidSignals,
 } from "./frameworks";
 
@@ -44,6 +45,10 @@ describe("deep get", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
 describe("deep set+get", () => {
@@ -82,6 +87,10 @@ describe("deep set+get", () => {
 
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
+  });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
   });
 });
 
@@ -130,6 +139,10 @@ describe("wide get", () => {
 
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
+  });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
   });
 });
 
@@ -180,6 +193,10 @@ describe("wide set+get", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
 describe("simple effect", () => {
@@ -223,6 +240,10 @@ describe("simple effect", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
 describe("tree effects", () => {
@@ -262,6 +283,10 @@ describe("tree effects", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
 describe("effect with conditions", () => {
@@ -300,6 +325,10 @@ describe("effect with conditions", () => {
 
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
+  });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
   });
 });
 
@@ -361,9 +390,13 @@ describe("wide effects", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
-describe("500 computations", () => {
+describe("1000 computations", () => {
   function op(api: SignalApi) {
     api.root(() => {
       const s1 = api.signal(1);
@@ -371,8 +404,11 @@ describe("500 computations", () => {
       const s3 = api.signal(1);
       const computations: Array<any> = [];
       api.runSync(() => {
-        for (let i = 0; i < 500; i++) {
-          computations.push(api.computed(() => s1.get() * s2.get() * s3.get()));
+        for (let i = 0; i < 1000; i++) {
+          if (i % 2 === 0)
+            computations.push(
+              api.computed(() => s1.get() * s2.get() * s3.get())
+            );
         }
       });
       api.runSync(() => {
@@ -402,16 +438,20 @@ describe("500 computations", () => {
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
   });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
+  });
 });
 
-describe("500 effects", () => {
+describe("1000 effects", () => {
   function op(api: SignalApi) {
     api.root(() => {
       const s1 = api.signal(1);
       const s2 = api.signal(1);
       const s3 = api.signal(1);
       api.runSync(() => {
-        for (let i = 0; i < 500; i++) {
+        for (let i = 0; i < 1000; i++) {
           api.effect(() => s1.get() * s2.get() * s3.get());
         }
       });
@@ -440,5 +480,9 @@ describe("500 effects", () => {
 
   bench("@maverick-js/signals", () => {
     op(MaverickSignals);
+  });
+
+  bench("signal-polyfill", () => {
+    op(SignalPolyfill);
   });
 });

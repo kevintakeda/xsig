@@ -1,5 +1,5 @@
 import { expect, test, vi, describe } from "vitest";
-import { flushEffects, signal } from "../src";
+import { tick, signal } from "../src";
 
 describe("state", () => {
   test("store and return a value", () => {
@@ -133,53 +133,6 @@ describe("graph", () => {
     expect(spyD).toHaveBeenCalledTimes(2);
   });
 
-  test("run once if inner memos don't change", () => {
-    const a = signal("a");
-    const b = signal(() => {
-      a.val;
-      return "b";
-    });
-
-    const spyC = vi.fn(() => b.val);
-    const c = signal(spyC);
-
-    expect(c.val).toBe("b");
-    expect(spyC).toHaveBeenCalledTimes(1);
-
-    a.val = "a!";
-
-    expect(c.val).toBe("b");
-    expect(spyC).toHaveBeenCalledTimes(1);
-  });
-
-  test("run once if inner memos don't change (DEEP)", () => {
-    const a = signal("a");
-    const b = signal(() => {
-      a.val;
-      return "b";
-    });
-
-    const spyC = vi.fn(() => b.val);
-    const c = signal(spyC);
-
-    const spyD = vi.fn(() => c.val);
-    const d = signal(spyD);
-
-    expect(d.val).toBe("b");
-    expect(spyC).toHaveBeenCalledTimes(1);
-    expect(spyD).toHaveBeenCalledTimes(1);
-
-    a.val = "a!";
-    expect(d.val).toBe("b");
-    expect(spyC).toHaveBeenCalledTimes(1);
-    expect(spyD).toHaveBeenCalledTimes(1);
-
-    a.val = "a!!";
-    expect(d.val).toBe("b");
-    expect(spyC).toHaveBeenCalledTimes(1);
-    expect(spyD).toHaveBeenCalledTimes(1);
-  });
-
   test("chained memos", () => {
     const a = signal("a");
     const spyB = vi.fn(() => a.val);
@@ -273,7 +226,7 @@ describe("effects", () => {
     const b = signal("b");
     const c = signal("c");
     const fSpy = vi.fn(() => (a.val ? b.val : c.val));
-    const f = signal(fSpy, { effect: true });
+    const f = signal(fSpy);
     expect(fSpy).toHaveBeenCalledTimes(0);
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(1);
@@ -285,7 +238,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(3);
     c.val = "c!";
     c.val = "c!!";
-    flushEffects();
+    tick();
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
     a.val = false;
@@ -293,7 +246,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(4);
     b.val = "b!";
     b.val = "b!!";
-    flushEffects();
+    tick();
     expect(fSpy).toHaveBeenCalledTimes(4);
     a.val = false;
     expect(fSpy).toHaveBeenCalledTimes(4);
@@ -365,7 +318,7 @@ describe("effects", () => {
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
     expect(spyD).toHaveBeenCalledTimes(2);
-    flushEffects();
+    tick();
   });
 
   test("dispose effects", () => {
@@ -390,7 +343,7 @@ describe("effects", () => {
     expect(bSpy).toHaveBeenCalledTimes(1);
     a.val = "a!!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
-    flushEffects();
+    tick();
   });
 
   test("effect with conditions", () => {
@@ -413,10 +366,10 @@ describe("effects", () => {
       { effect: true }
     );
     s1.val = false;
-    flushEffects();
+    tick();
     expect(result.val).toBe(0);
     s1.val = true;
-    flushEffects();
+    tick();
     expect(result.val).toBe(1);
   });
 
@@ -430,10 +383,10 @@ describe("effects", () => {
     const d = signal(spyD);
     const spyE = vi.fn(() => d.val);
     signal(spyE, { effect: true });
-    flushEffects();
+    tick();
     expect(spyE).toHaveBeenCalledTimes(1);
     a.val = 4;
-    flushEffects();
+    tick();
     expect(spyE).toHaveBeenCalledTimes(2);
   });
 });

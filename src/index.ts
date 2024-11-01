@@ -1,136 +1,108 @@
-let TRACK_DEPS: undefined | Array<NanoSignal>,
-  PREV_DEPS: undefined | Array<NanoSignal>,
-  TRACK_ALL: undefined | Array<NanoSignal>,
-  GLOBAL_V = 0,
-  CALL_V = 1,
-  EFFECT_QUEUE: Array<NanoSignal> = [],
-  QUEUED = 0;
+let EFFECT_QUEUE: Array<NanoSignal> = [],
+  QUEUED = false,
+  CURRENT: undefined | NanoSignal,
+  PREV_CURRENT: undefined | NanoSignal;
 
+export interface NanoSignalOptions {
+  effect?: boolean;
+  equals?: (a: unknown, b: unknown) => boolean;
+  tick?: () => void
+}
 export class NanoSignal<T = unknown> {
   #effect: boolean | undefined;
   #compute: (() => T) | undefined;
-
   #cache: T | undefined;
-  #deps: Array<NanoSignal> = [];
+  #sources: Array<NanoSignal> = [];
+  #observers: Array<NanoSignal> = [];
+  #dirty = true;
+  #version: number = -1
+  static v: number = 0;
 
-  #version: number = 0;
-  #contentVersion: number = 0;
+  equals: (a1: unknown, a2: unknown) => boolean;
+  tick: (() => void) | undefined;
 
-  #effects: Array<NanoSignal> = [];
-
-  equals = (a1: unknown, a2: unknown) => a1 === a2;
-  autoFlush = false;
-
-  constructor(value: (() => T) | T, effect?: boolean) {
+  constructor(value: (() => T) | T, options?: NanoSignalOptions) {
     if (typeof value === "function") {
       this.#compute = value as () => T;
-      if (effect) {
-        this.#effect = effect;
+      if (options?.effect) {
+        this.#effect = options?.effect;
         EFFECT_QUEUE.push(this);
+        this.tick?.();
       }
     } else {
       this.#cache = value;
     }
+    this.equals = options?.equals ?? ((a1, a2) => a1 === a2)
+    this.tick = options?.tick
   }
 
-  // Should only be called if 'compute' is defined.
-  #update() {
-    PREV_DEPS = TRACK_DEPS;
-    this.#deps = [];
-    TRACK_DEPS = this.#deps;
+  // it updates itself and returns if the value was the same
+  #updateIfNecessary() {
+    if (!this.#compute || !this.#dirty) return false;
+    const needsUpdate = this.#sources.length === 0 || this.#sources.some(el => !el.#updateIfNecessary())
+    if (needsUpdate && this.#cache === this.e()) return true;
+    return false;
+  }
 
+  e() {
+    if (!this.#compute) return false
+    for (const el of this.#sources) {
+      const idx = el.#observers.indexOf(this);
+      if (idx !== -1) el.#observers.splice(idx, 1)
+    }
+    this.#sources = [];
+    PREV_CURRENT = CURRENT;
+    CURRENT = this;
     this.#cache = this.#compute!();
-
-    if (this.#effect) {
-      TRACK_ALL?.forEach((a) => {
-        if (a.#effects.indexOf(this) === -1) a.#effects.push(this);
-      });
-    }
-
-    this.#version = CALL_V;
-    this.#contentVersion = this.#version;
-    TRACK_DEPS = PREV_DEPS;
-    PREV_DEPS = undefined;
+    this.#dirty = false;
+    CURRENT = PREV_CURRENT;
+    PREV_CURRENT = undefined;
+    return this.#cache
   }
 
-  #tryUpdate(version?: number): number {
-    // Return -1 if update is not needed, or the version to be updated.
-    if (!version) version = this.#version;
-    let ourVersion = this.#contentVersion;
-    if (version >= ourVersion) {
-      if (this.#compute) {
-        const notDirty = !(
-          this.#version === 0 ||
-          this.#deps.some((dep) => {
-            const depVersion = dep.#tryUpdate(version);
-            if (depVersion > ourVersion) {
-              ourVersion = depVersion;
-              return true;
-            }
-          })
-        );
-        if (notDirty) return -1;
-        let prev = this.#cache,
-          prevVer = this.#version;
-        this.#update();
-        if (this.equals(prev, this.#cache)) {
-          this.#contentVersion = prevVer;
-          return -1;
-        }
-      } else return -1;
-    }
-    return ourVersion;
+  #mark() {
+    if (this.#version === NanoSignal.v) return
+    this.#version = NanoSignal.v
+    this.#dirty = true
+    if (this.#effect && EFFECT_QUEUE.indexOf(this) === -1) EFFECT_QUEUE.push(this)
+    else for (const el of this.#observers) el.#mark()
   }
 
   get val(): T {
-    if (TRACK_DEPS && TRACK_DEPS.indexOf(this) === -1) TRACK_DEPS.push(this);
-    if (TRACK_ALL && TRACK_ALL.indexOf(this) === -1) TRACK_ALL.push(this);
-    if (this.#compute && this.#version !== CALL_V) {
-      this.#tryUpdate(this.#version);
+    if (CURRENT) {
+      if (this.#observers.indexOf(CURRENT) === -1) this.#observers.push(CURRENT);
+      if (!this.#effect && CURRENT.#sources.indexOf(this) === -1) CURRENT.#sources.push(this);
     }
+    if (this.#compute && this.#dirty) this.#updateIfNecessary()
     return this.#cache as T;
   }
 
   set val(newValue: T | null) {
     if (!this.equals(this.#cache, newValue)) {
       this.#cache = newValue as T;
-      this.#version = ++GLOBAL_V;
-      CALL_V = this.#version;
-      this.#contentVersion = this.#version;
       this.#compute = undefined;
-      this.#effects.forEach((node) => {
-        if (EFFECT_QUEUE.indexOf(node) === -1) {
-          EFFECT_QUEUE.push(node);
-        }
-      });
-      if (this.autoFlush && !QUEUED) {
-        QUEUED = 1;
-        queueMicrotask(() => (flushEffects(), (QUEUED = 0)));
-      }
+      NanoSignal.v++
+      this.#mark();
+      this.tick?.();
     }
   }
 }
 
-export function flushEffects() {
-  EFFECT_QUEUE.forEach((node) => {
-    TRACK_ALL = [];
-    node.val;
-    TRACK_ALL = undefined;
-  });
-  EFFECT_QUEUE = [];
-}
-
-export interface NanoSignalOptions {
-  effect?: boolean;
-  name?: string;
-  equals?: (a: unknown, b: unknown) => boolean;
-}
-
 export function signal<T = unknown>(
   value: T | (() => T),
-  options?: NanoSignalOptions
+  options?: NanoSignalOptions,
 ): NanoSignal<T> {
-  const signal = new NanoSignal<T>(value, options?.effect);
-  if (options?.equals) signal.equals = options.equals;
-  return signal;
+  return new NanoSignal<T>(value, options);
+}
+
+export function tick() {
+  for (const el of EFFECT_QUEUE) el.e()
+  EFFECT_QUEUE = []
+}
+
+export function queueTick() {
+  if (!QUEUED) {
+    QUEUED = true;
+    queueMicrotask(() => (tick(), QUEUED = false));
+  }
 }
