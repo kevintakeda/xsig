@@ -1,7 +1,7 @@
 let EFFECT_QUEUE: Array<NanoSignal> = [],
   QUEUED = false,
   CURRENT: undefined | NanoSignal,
-  PREV_CURRENT: undefined | NanoSignal;
+  PREV_CURRENT: undefined | NanoSignal, V = 0;
 
 export interface NanoSignalOptions {
   effect?: boolean;
@@ -16,7 +16,6 @@ export class NanoSignal<T = unknown> {
   #observers: Array<NanoSignal> = [];
   #dirty = true;
   #version: number = -1
-  static v: number = 0;
 
   equals: (a1: unknown, a2: unknown) => boolean;
   tick: (() => void) | undefined;
@@ -61,8 +60,8 @@ export class NanoSignal<T = unknown> {
   }
 
   #mark() {
-    if (this.#version === NanoSignal.v) return
-    this.#version = NanoSignal.v
+    if (this.#version === V) return
+    this.#version = V
     this.#dirty = true
     if (this.#effect && EFFECT_QUEUE.indexOf(this) === -1) EFFECT_QUEUE.push(this)
     else for (const el of this.#observers) el.#mark()
@@ -81,7 +80,7 @@ export class NanoSignal<T = unknown> {
     if (!this.equals(this.#cache, newValue)) {
       this.#cache = newValue as T;
       this.#compute = undefined;
-      NanoSignal.v++
+      V++
       this.#mark();
       this.tick?.();
     }
