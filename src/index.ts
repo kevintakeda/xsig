@@ -1,13 +1,14 @@
 let EFFECT_QUEUE: Array<NanoSignal> = [],
   QUEUED = false,
   CURRENT: undefined | NanoSignal,
-  PREV_CURRENT: undefined | NanoSignal, V = 0;
+  V = 0,
+  queueFn: (() => void) | undefined;
 
 export interface NanoSignalOptions {
   effect?: boolean;
   equals?: (a: unknown, b: unknown) => boolean;
-  tick?: () => void
 }
+
 export class NanoSignal<T = unknown> {
   #effect: boolean | undefined;
   #compute: (() => T) | undefined;
@@ -18,7 +19,6 @@ export class NanoSignal<T = unknown> {
   #version: number = -1
 
   equals: (a1: unknown, a2: unknown) => boolean;
-  tick: (() => void) | undefined;
 
   constructor(value: (() => T) | T, options?: NanoSignalOptions) {
     if (typeof value === "function") {
@@ -26,53 +26,51 @@ export class NanoSignal<T = unknown> {
       if (options?.effect) {
         this.#effect = options?.effect;
         EFFECT_QUEUE.push(this);
-        this.tick?.();
+        queueFn?.();
       }
     } else {
       this.#cache = value;
     }
     this.equals = options?.equals ?? ((a1, a2) => a1 === a2)
-    this.tick = options?.tick
   }
 
   // it updates itself and returns if the value was the same
-  #updateIfNecessary() {
-    if (!this.#compute || !this.#dirty) return false;
-    const needsUpdate = this.#sources.length === 0 || this.#sources.some(el => !el.#updateIfNecessary())
-    if (needsUpdate && this.#cache === this.e()) return true;
-    return false;
+  #updateIfNecessary(): boolean {
+    return (!!this.#compute && this.#dirty)
+      && (this.#sources.length === 0 || this.#sources.some(el => !el.#updateIfNecessary()))
+      && (this.#cache === this._exec());
   }
 
-  e() {
-    if (!this.#compute) return false
+  /* @internal */
+  _exec() {
     for (const el of this.#sources) {
       const idx = el.#observers.indexOf(this);
       if (idx !== -1) el.#observers.splice(idx, 1)
     }
     this.#sources = [];
-    PREV_CURRENT = CURRENT;
+    const prev = CURRENT;
     CURRENT = this;
-    this.#cache = this.#compute!();
+    this.#cache = this.#compute?.();
     this.#dirty = false;
-    CURRENT = PREV_CURRENT;
-    PREV_CURRENT = undefined;
+    CURRENT = prev;
     return this.#cache
   }
 
   #mark() {
     if (this.#version === V) return
     this.#version = V
+    const prevDirty = this.#dirty
     this.#dirty = true
-    if (this.#effect && EFFECT_QUEUE.indexOf(this) === -1) EFFECT_QUEUE.push(this)
+    if (this.#effect && !prevDirty) EFFECT_QUEUE.push(this)
     else for (const el of this.#observers) el.#mark()
   }
 
   get val(): T {
     if (CURRENT) {
       if (this.#observers.indexOf(CURRENT) === -1) this.#observers.push(CURRENT);
-      if (!this.#effect && CURRENT.#sources.indexOf(this) === -1) CURRENT.#sources.push(this);
+      if (CURRENT.#sources.indexOf(this) === -1) CURRENT.#sources.push(this);
     }
-    if (this.#compute && this.#dirty) this.#updateIfNecessary()
+    this.#updateIfNecessary()
     return this.#cache as T;
   }
 
@@ -82,7 +80,7 @@ export class NanoSignal<T = unknown> {
       this.#compute = undefined;
       V++
       this.#mark();
-      this.tick?.();
+      queueFn?.();
     }
   }
 }
@@ -95,7 +93,7 @@ export function signal<T = unknown>(
 }
 
 export function tick() {
-  for (const el of EFFECT_QUEUE) el.e()
+  for (const el of EFFECT_QUEUE) el._exec()
   EFFECT_QUEUE = []
 }
 
@@ -104,4 +102,8 @@ export function queueTick() {
     QUEUED = true;
     queueMicrotask(() => (tick(), QUEUED = false));
   }
+}
+
+export function autoTick(fn = queueTick) {
+  queueFn = fn;
 }
