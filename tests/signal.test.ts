@@ -344,6 +344,16 @@ describe("effects", () => {
     a.val = "a!!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
     tick();
+
+    // can still be used as a data source
+    const xSpy = vi.fn();
+    const x = signal(() => {
+      xSpy();
+      return b.val
+    });
+    b.val = "!"
+    expect(x.val).toBe("!")
+    expect(xSpy).toHaveBeenCalledTimes(1);
   });
 
   test("effect with conditions", () => {
@@ -388,5 +398,19 @@ describe("effects", () => {
     a.val = 4;
     tick();
     expect(spyE).toHaveBeenCalledTimes(2);
+  });
+
+  test("cleanup effect", () => {
+    const spy = vi.fn();
+    const x = signal(1);
+    signal(() => {
+      x.val
+      return () => spy();
+    }, { effect: true });
+    tick();
+    expect(spy).toHaveBeenCalledTimes(0);
+    x.val++;
+    tick();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
