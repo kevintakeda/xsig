@@ -1,24 +1,52 @@
 # nanosignals
 
-A very tiny (~0.5 KB minified+brotli) and experimental implementation of signals, highly inspired by [Reactively](https://github.com/milomg/reactively).
+A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
+
+- Signals-based observers
+- Only **474 bytes** (minified and brotlified)
+- Fine grained updates (updates only when necessary)
+- Computations are lazy by default
+- Auto depedency tracking
+- Easy and predictable
 
 ## Example
 
 ```js
-import { signal, tick } from "nanosignals";
+import { signal, tick, autoTick } from "nanosignals";
 
-const counter = signal(1);
-const double = signal(() => counter.val * 2);
+// A "data source".
+const number = signal(1);
 
-counter.val = 2; // updates the counter but nothing else
-console.log(double.val); // compute and logs 4
-console.log(double.val); // logs 4 immediately from the cache
+// A "memo" that executes only when `double.val` is read.
+const double = signal(() => number.val * 2);
 
-signal(() => console.log(double.val), { effect: true }); // a lazy effect
-counter.val = 3; // updates the counter
+// An "effect" that executes only if `double` changes.
+signal(
+  () => {
+    console.log("double is: " + double.val);
+    return () => {
+      /* clean up code if needed */
+    };
+  },
+  { effect: true }
+);
 
-tick(); // logs 6
-tick(); // does nothing.
+// logs "double is: 4".
+tick();
 
-double.val; // returns 6 immediately from the cache
+// does nothing.
+tick();
+
+// if you don't want to call `tick()` everytime
+// you can setup a microtask scheduler:
+autoTick();
+
+// logs "double is: 0"
+number.val = 0;
+
+// To stop an effect
+const effect = signal(() => console.log("effect"), { effect: true });
+
+// now `effect` act as a regular "data source"
+effect.val = null;
 ```

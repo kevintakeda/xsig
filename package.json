@@ -10,13 +10,15 @@
     "test": "vitest",
     "bench": "vitest bench",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "libsize": "tsc && vite build && node libsize.mjs"
   },
   "devDependencies": {
     "@maverick-js/signals": "^6.0.0",
     "@preact/signals-core": "^1.8.0",
     "@reactively/core": "^0.0.8",
-    "@types/node": "^22.8.6",
+    "@swc/core": "^1.9.1",
+    "@types/node": "^22.9.0",
     "signal-polyfill": "^0.2.1",
     "solid-js": "^1.9.3",
     "typescript": "^5.6.3",
