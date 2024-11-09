@@ -52,27 +52,6 @@ describe("simple set+get", () => {
   runAll(op);
 });
 
-describe("deep get", () => {
-  function op(api: SignalApi) {
-    return api.root(() => {
-      const s = api.signal("a");
-      const s2 = api.computed(() => s.get());
-      const s3 = api.computed(() => s2.get());
-      const s4 = api.computed(() => s3.get());
-      const s5 = api.computed(() => s4.get());
-      const s6 = api.computed(() => s5.get());
-      const s7 = api.computed(() => s6.get());
-      const s8 = api.computed(() => s7.get());
-      const s9 = api.computed(() => s8.get());
-      const s10 = api.computed(() => s9.get());
-      return () => {
-        assert(s10.get(), "a");
-      }
-    });
-  }
-  runAll(op);
-});
-
 describe("deep set+get", () => {
   function op(api: SignalApi) {
     return api.root(() => {
@@ -275,33 +254,22 @@ describe("wide effects", () => {
   runAll(op);
 });
 
-describe("1000 computations", () => {
+
+describe("1 source -> 1 computed -> 100 computeds", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
-      const s2 = api.signal(1);
-      const s3 = api.signal(1);
-      const bucket1: any[] = [];
-      const bucket2: any[] = [];
-      const bucket3: any[] = [];
+      const s2 = api.signal(() => s1.get());
+      const arr: any[] = []
       api.runSync(() => {
-        for (let i = 0; i < 1000; i++) {
-          if (i % 3 === 1) {
-            bucket1.push(api.computed(() => s1.get()));
-          } else if (i % 3 === 2) {
-            bucket2.push(api.computed(() => s2.get()));
-          } else {
-            bucket3.push(api.computed(() => s1.get() + s2.get() + s3.get()));
-          }
+        for (let i = 0; i < 100; i++) {
+          arr.push(api.computed(() => s2.get()));
         }
       });
-      bucket1.forEach(el => el.get())
-      bucket2.forEach(el => el.get())
-      bucket3.forEach(el => el.get())
       return () => {
         api.runSync(() => {
-          s2.set(s2.get() + 1);
-          bucket2.forEach(el => el.get())
+          s1.set(s1.get() + 1);
+          arr.forEach(el => el.get())
         });
       }
     });
@@ -309,31 +277,21 @@ describe("1000 computations", () => {
   runAll(op);
 });
 
-describe("1000 effects", () => {
+
+describe("1 source -> 1 computed -> 100 effects", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
-      const s2 = api.signal(1);
-      const s3 = api.signal(1);
+      const s2 = api.signal(() => s1.get());
       api.runSync(() => {
-        for (let i = 0; i < 1000; i++) {
-          if (i % 3 === 1) {
-            api.effect(() => s1.get());
-          } else if (i % 3 === 2) {
-            api.effect(() => s2.get());
-          } else {
-            api.effect(() => s1.get() + s2.get() + s3.get());
-          }
+        for (let i = 0; i < 100; i++) {
+          api.effect(() => s2.get());
         }
       });
       let j = 0
       return () => {
         api.runSync(() => {
-          if (j % 2 === 0) {
-            s1.set(Math.random());
-          } else {
-            s2.set(Math.random());
-          }
+          s1.set(s1.get() + 1);
         });
       }
     });

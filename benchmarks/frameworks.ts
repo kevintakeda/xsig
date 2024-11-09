@@ -1,4 +1,4 @@
-import { tick, NanoSignal, signal } from "../src";
+import { Sig } from "../src";
 import { Signal } from "signal-polyfill";
 import { Reactive, stabilize } from "@reactively/core";
 import {
@@ -37,22 +37,22 @@ export interface SignalApi {
 
 export const NanoSignals: SignalApi = {
   signal: (val) => {
-    const S = signal(val);
+    const S = new Sig(val);
     return {
       set: (v) => (S.val = v),
       get: () => S.val,
     };
   },
   computed: (fn) => {
-    const S = signal(fn);
+    const S = new Sig(fn);
     return {
       get: () => S.val,
     };
   },
-  effect: (fn) => new NanoSignal(fn, { effect: true }),
+  effect: (fn) => new Sig(fn, true),
   runSync: (fn) => {
     fn();
-    tick();
+    Sig.tick();
   },
   root: (fn) => fn(),
 };

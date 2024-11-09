@@ -1,20 +1,20 @@
 import { expect, test, vi, describe } from "vitest";
-import { tick, signal } from "../src";
+import { Sig } from "../src";
 
 describe("state", () => {
   test("store and return a value", () => {
-    const a = signal(1);
+    const a = new Sig(1);
     expect(a.val).toBe(1);
   });
 
   test("updates its value", () => {
-    const a = signal(1);
+    const a = new Sig(1);
     a.val = 2;
     expect(a.val).toBe(2);
   });
 
   test("multi updates", () => {
-    const a = signal(1);
+    const a = new Sig(1);
     a.val = 1;
     a.val = 2;
     a.val = 3;
@@ -24,10 +24,10 @@ describe("state", () => {
 
 describe("memos", () => {
   test("caching", () => {
-    const a = signal(1);
-    const b = signal(2);
+    const a = new Sig(1);
+    const b = new Sig(2);
     const cSpy = vi.fn(() => a.val + b.val);
-    const c = signal(cSpy);
+    const c = new Sig(cSpy);
     expect(c.val).toBe(3);
     expect(c.val).toBe(3);
     expect(c.val).toBe(3);
@@ -35,10 +35,10 @@ describe("memos", () => {
   });
 
   test("laziness", () => {
-    const a = signal(1);
-    const b = signal(2);
+    const a = new Sig(1);
+    const b = new Sig(2);
     const cSpy = vi.fn(() => a.val + b.val);
-    const c = signal(cSpy);
+    const c = new Sig(cSpy);
     // test lazyness
     a.val = 12;
     a.val = 10;
@@ -50,9 +50,9 @@ describe("memos", () => {
   });
 
   test("with simple condition", () => {
-    const a = signal(false);
+    const a = new Sig(false);
     const bSpy = vi.fn(() => (a.val ? "1" : "2"));
-    const b = signal(bSpy);
+    const b = new Sig(bSpy);
     expect(b.val).toBe("2");
     a.val = true;
     expect(b.val).toBe("1");
@@ -64,12 +64,12 @@ describe("memos", () => {
   });
 
   test("unsubscribe invisible dependencies", () => {
-    const a = signal(false);
-    const b = signal("b");
-    const c = signal("c");
+    const a = new Sig(false);
+    const b = new Sig("b");
+    const c = new Sig("c");
 
     const dSpy = vi.fn(() => (a.val ? b.val : c.val));
-    const d = signal(dSpy);
+    const d = new Sig(dSpy);
     expect(d.val).toBe("c");
 
     a.val = true;
@@ -98,12 +98,12 @@ describe("memos", () => {
 
 describe("graph", () => {
   test("the diamond problem", () => {
-    const a = signal("a");
-    const b = signal(() => a.val);
-    const c = signal(() => a.val);
+    const a = new Sig("a");
+    const b = new Sig(() => a.val);
+    const c = new Sig(() => a.val);
 
     const spy = vi.fn(() => b.val + c.val);
-    const d = signal(spy);
+    const d = new Sig(spy);
 
     expect(d.val).toBe("aa");
     expect(spy).toHaveBeenCalledTimes(1);
@@ -115,13 +115,13 @@ describe("graph", () => {
   });
 
   test("deep nested memos", () => {
-    const a = signal(2);
+    const a = new Sig(2);
     const spyB = vi.fn(() => a.val + 1);
-    const b = signal(spyB);
+    const b = new Sig(spyB);
     const spyC = vi.fn(() => a.val + b.val);
-    const c = signal(spyC);
+    const c = new Sig(spyC);
     const spyD = vi.fn(() => a.val + b.val + c.val);
-    const d = signal(spyD);
+    const d = new Sig(spyD);
     expect(d.val).toBe(10);
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
@@ -134,11 +134,11 @@ describe("graph", () => {
   });
 
   test("chained memos", () => {
-    const a = signal("a");
+    const a = new Sig("a");
     const spyB = vi.fn(() => a.val);
-    const b = signal(spyB);
-    const c = signal(() => b.val);
-    const d = signal(() => c.val);
+    const b = new Sig(spyB);
+    const c = new Sig(() => b.val);
+    const d = new Sig(() => c.val);
 
     expect(a.val).toBe("a");
     expect(b.val).toBe("a");
@@ -157,13 +157,13 @@ describe("graph", () => {
   });
 
   test("multi-branch linked by memo", () => {
-    const a = signal("a");
-    const b = signal(() => a.val);
-    const c = signal(() => a.val);
+    const a = new Sig("a");
+    const b = new Sig(() => a.val);
+    const c = new Sig(() => a.val);
     const dSpy = vi.fn(() => b.val + c.val);
-    const d = signal(dSpy);
-    const e = signal(() => d.val);
-    const f = signal(() => d.val);
+    const d = new Sig(dSpy);
+    const e = new Sig(() => d.val);
+    const f = new Sig(() => d.val);
 
     expect(e.val).toBe("aa");
     expect(f.val).toBe("aa");
@@ -176,14 +176,14 @@ describe("graph", () => {
   });
 
   test("tree", () => {
-    const a = signal("a");
-    const b = signal("b");
-    const c = signal("c");
-    const d = signal("d");
-    const e = signal(() => a.val + b.val);
-    const f = signal(() => c.val + d.val);
+    const a = new Sig("a");
+    const b = new Sig("b");
+    const c = new Sig("c");
+    const d = new Sig("d");
+    const e = new Sig(() => a.val + b.val);
+    const f = new Sig(() => c.val + d.val);
     const gSpy = vi.fn(() => e.val + f.val);
-    const g = signal(gSpy);
+    const g = new Sig(gSpy);
     expect(e.val).toBe("ab");
     expect(f.val).toBe("cd");
     expect(gSpy).toBeCalledTimes(0);
@@ -203,10 +203,10 @@ describe("graph", () => {
 
 describe("effects", () => {
   test("effects", () => {
-    const a = signal(1);
-    const b = signal(2);
+    const a = new Sig(1);
+    const b = new Sig(2);
     const cSpy = vi.fn(() => a.val + b.val);
-    const c = signal(cSpy, { effect: true });
+    const c = new Sig(cSpy, true);
     expect(cSpy).toHaveBeenCalledTimes(0);
     expect(c.val).toBe(3);
     expect(c.val).toBe(3);
@@ -222,11 +222,11 @@ describe("effects", () => {
   });
 
   test("unsubscribe invisible dependencies", () => {
-    const a = signal(true);
-    const b = signal("b");
-    const c = signal("c");
+    const a = new Sig(true);
+    const b = new Sig("b");
+    const c = new Sig("c");
     const fSpy = vi.fn(() => (a.val ? b.val : c.val));
-    const f = signal(fSpy);
+    const f = new Sig(fSpy);
     expect(fSpy).toHaveBeenCalledTimes(0);
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(1);
@@ -238,7 +238,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(3);
     c.val = "c!";
     c.val = "c!!";
-    tick();
+    Sig.tick();
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
     a.val = false;
@@ -246,7 +246,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(4);
     b.val = "b!";
     b.val = "b!!";
-    tick();
+    Sig.tick();
     expect(fSpy).toHaveBeenCalledTimes(4);
     a.val = false;
     expect(fSpy).toHaveBeenCalledTimes(4);
@@ -255,13 +255,13 @@ describe("effects", () => {
   });
 
   test("unsubscribe invisible dependencies (effects)", () => {
-    const a = signal(true);
-    const b = signal("b");
-    const c = signal("c");
-    const d = signal(() => b.val, { effect: true });
-    const e = signal(() => c.val, { effect: true });
+    const a = new Sig(true);
+    const b = new Sig("b");
+    const c = new Sig("c");
+    const d = new Sig(() => b.val, true);
+    const e = new Sig(() => c.val, true);
     const fSpy = vi.fn(() => (a.val ? d.val : e.val));
-    const f = signal(fSpy, { effect: true });
+    const f = new Sig(fSpy, true);
 
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(1);
@@ -285,13 +285,13 @@ describe("effects", () => {
   });
 
   test("nested effects run once", () => {
-    const a = signal(2);
+    const a = new Sig(2);
     const spyB = vi.fn(() => a.val);
-    const b = signal(spyB, { effect: true });
+    const b = new Sig(spyB, true);
     const spyC = vi.fn(() => a.val);
-    const c = signal(spyC, { effect: true });
+    const c = new Sig(spyC, true);
     const spyD = vi.fn(() => a.val);
-    const d = signal(spyD, { effect: true });
+    const d = new Sig(spyD, true);
 
     // read a
     expect(a.val).toBe(2);
@@ -318,13 +318,13 @@ describe("effects", () => {
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
     expect(spyD).toHaveBeenCalledTimes(2);
-    tick();
+    Sig.tick();
   });
 
   test("dispose effects", () => {
-    const a = signal("a");
+    const a = new Sig("a");
     const bSpy = vi.fn(() => a.val);
-    const b = signal(bSpy, { effect: true });
+    const b = new Sig(bSpy, true);
     expect(bSpy).toHaveBeenCalledTimes(0);
 
     // read effect
@@ -343,11 +343,11 @@ describe("effects", () => {
     expect(bSpy).toHaveBeenCalledTimes(1);
     a.val = "a!!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
-    tick();
+    Sig.tick();
 
     // can still be used as a data source
     const xSpy = vi.fn();
-    const x = signal(() => {
+    const x = new Sig(() => {
       xSpy();
       return b.val
     });
@@ -357,13 +357,13 @@ describe("effects", () => {
   });
 
   test("effect with conditions", () => {
-    const s1 = signal(true);
-    const s2 = signal("a");
-    const s3 = signal("b");
-    const s4 = signal(() => s2.val);
-    const s5 = signal(() => s3.val);
+    const s1 = new Sig(true);
+    const s2 = new Sig("a");
+    const s3 = new Sig("b");
+    const s4 = new Sig(() => s2.val);
+    const s5 = new Sig(() => s3.val);
     let result = { val: 0 };
-    signal(
+    new Sig(
       () => {
         if (s1.val) {
           s4.val;
@@ -373,44 +373,44 @@ describe("effects", () => {
           result.val = 0;
         }
       },
-      { effect: true }
+      true
     );
     s1.val = false;
-    tick();
+    Sig.tick();
     expect(result.val).toBe(0);
     s1.val = true;
-    tick();
+    Sig.tick();
     expect(result.val).toBe(1);
   });
 
   test("effect with nested dependencies", () => {
-    const a = signal(2);
+    const a = new Sig(2);
     const spyB = vi.fn(() => a.val + 1);
-    const b = signal(spyB);
+    const b = new Sig(spyB);
     const spyC = vi.fn(() => b.val);
-    const c = signal(spyC);
+    const c = new Sig(spyC);
     const spyD = vi.fn(() => c.val);
-    const d = signal(spyD);
+    const d = new Sig(spyD);
     const spyE = vi.fn(() => d.val);
-    signal(spyE, { effect: true });
-    tick();
+    new Sig(spyE, true);
+    Sig.tick();
     expect(spyE).toHaveBeenCalledTimes(1);
     a.val = 4;
-    tick();
+    Sig.tick();
     expect(spyE).toHaveBeenCalledTimes(2);
   });
 
   test("cleanup effect", () => {
     const spy = vi.fn();
-    const x = signal(1);
-    signal(() => {
+    const x = new Sig(1);
+    new Sig(() => {
       x.val
       return () => spy();
-    }, { effect: true });
-    tick();
+    }, true);
+    Sig.tick();
     expect(spy).toHaveBeenCalledTimes(0);
     x.val++;
-    tick();
+    Sig.tick();
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });

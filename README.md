@@ -3,7 +3,7 @@
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **474 bytes** (minified and brotlified)
+- Only **433 bytes** (minified and brotlified)
 - Fine grained updates (updates only when necessary)
 - Computations are lazy by default
 - Auto depedency tracking
@@ -12,41 +12,35 @@ A very tiny reactive library, highly inspired by [Reactively](https://github.com
 ## Example
 
 ```js
-import { signal, tick, autoTick } from "nanosignals";
+import { Sig } from "nanosignals";
 
 // A "data source".
-const number = signal(1);
+const number = new Sig(1);
 
 // A "memo" that executes only when `double.val` is read.
-const double = signal(() => number.val * 2);
+const double = new Sig(() => number.val * 2);
 
 // An "effect" that executes only if `double` changes.
-signal(
-  () => {
-    console.log("double is: " + double.val);
-    return () => {
-      /* clean up code if needed */
-    };
-  },
-  { effect: true }
-);
+const effect = new Sig(() => {
+  console.log("double is: " + double.val);
+  return () => {
+    /* clean up code if needed */
+  };
+}, /* here we specify that is a signal */ true);
 
 // logs "double is: 4".
-tick();
+Sig.tick();
 
 // does nothing.
-tick();
+Sig.tick();
 
 // if you don't want to call `tick()` everytime
 // you can setup a microtask scheduler:
-autoTick();
+Sig.autoTick();
 
-// logs "double is: 0"
+// logs "double is: 0" *almost instantly*
 number.val = 0;
 
-// To stop an effect
-const effect = signal(() => console.log("effect"), { effect: true });
-
-// now `effect` act as a regular "data source"
+// To stop an effect just set a value and now the efect becomes a data source
 effect.val = null;
 ```
