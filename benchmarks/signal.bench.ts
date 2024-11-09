@@ -259,7 +259,7 @@ describe("1 source -> 1 computed -> 100 computeds", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
-      const s2 = api.signal(() => s1.get());
+      const s2 = api.computed(() => s1.get());
       const arr: any[] = []
       api.runSync(() => {
         for (let i = 0; i < 100; i++) {
@@ -282,7 +282,7 @@ describe("1 source -> 1 computed -> 100 effects", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
-      const s2 = api.signal(() => s1.get());
+      const s2 = api.computed(() => s1.get());
       api.runSync(() => {
         for (let i = 0; i < 100; i++) {
           api.effect(() => s2.get());
