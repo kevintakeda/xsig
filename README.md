@@ -3,7 +3,7 @@
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **433 bytes** (minified and brotlified)
+- Only **431 bytes** (minified and brotlified)
 - Fine grained updates (updates only when necessary)
 - Computations are lazy by default
 - Auto depedency tracking
