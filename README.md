@@ -26,7 +26,7 @@ const effect = new Sig(() => {
   return () => {
     /* clean up code if needed */
   };
-}, /* here we specify that is a signal */ true);
+}, /* here we specify that is an effect */ true);
 
 // logs "double is: 4".
 Sig.tick();
