@@ -35,7 +35,7 @@ export interface SignalApi {
   root<T>(fn: () => T): T;
 }
 
-export const NanoSignals: SignalApi = {
+export const SigApi: SignalApi = {
   signal: (val) => {
     const S = new Sig(val);
     return {

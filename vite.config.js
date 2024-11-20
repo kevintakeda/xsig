@@ -6,8 +6,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, './src/index.ts'),
-      name: 'nanosignals',
-      fileName: `nanosignals`,
+      name: 'sigx',
+      fileName: "index",
     },
     formats: ['es'],
     target: "esnext"

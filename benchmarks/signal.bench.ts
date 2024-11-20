@@ -1,7 +1,7 @@
 import { assert, bench, describe } from "vitest";
 import {
   MaverickSignals,
-  NanoSignals,
+  SigApi,
   PreactSignals,
   Reactively,
   SignalApi,
@@ -10,8 +10,8 @@ import {
 } from "./frameworks";
 
 function runAll(op: (api: SignalApi) => (() => void)) {
-  const x1 = op(NanoSignals);
-  bench("nanosignals", () => {
+  const x1 = op(SigApi);
+  bench("xsig", () => {
     x1()
   });
 
@@ -293,6 +293,28 @@ describe("1 source -> 1 computed -> 100 effects", () => {
         api.runSync(() => {
           s1.set(s1.get() + 1);
         });
+      }
+    });
+  }
+  runAll(op);
+});
+
+
+describe("1 to 1 effects", () => {
+  function op(api: SignalApi) {
+    return api.root(() => {
+      let count = 0, all: any[] = [];
+      for (let i = 0; i < 1000; i++) {
+        const a = api.signal(i);
+        all.push(a)
+        api.effect(() => { a.get(); count++; });
+      }
+      return () => {
+        count = 0;
+        api.runSync(() => {
+          all.forEach(el => el.set(el.get() + 1));
+        });
+        console.assert(count === 1000);
       }
     });
   }

@@ -1,4 +1,4 @@
-# nanosignals
+# xsig
 
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
@@ -9,10 +9,16 @@ A very tiny reactive library, highly inspired by [Reactively](https://github.com
 - Auto depedency tracking
 - Easy and predictable
 
+## Install
+
+```
+npm install xsig
+```
+
 ## Example
 
 ```js
-import { Sig } from "nanosignals";
+import { Sig } from "xsig";
 
 // A "data source".
 const number = new Sig(1);
@@ -41,6 +47,8 @@ Sig.autoTick();
 // logs "double is: 0" *almost instantly*
 number.val = 0;
 
-// To stop an effect just set a value and now the efect becomes a data source
-effect.val = null;
+// To stop an effect just set a value.
+setTimeout(() => {
+  effect.val = null;
+}, 5000);
 ```
