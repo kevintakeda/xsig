@@ -1,7 +1,7 @@
-// adapted from https://github.com/preactjs/signals/blob/main/packages/core/test/new Sig.test.tsx
+// adapted from https://github.com/preactjs/signals/blob/main/packages/core/test/signal.test.tsx
 
 import { vi, it, expect } from "vitest";
-import { Sig } from "../src";
+import { Sig, tick } from "../src";
 
 it("should run computeds once for multiple dep changes", () => {
   const a = new Sig("a");
@@ -224,7 +224,7 @@ it("should only subscribe to signals listened to", () => {
 
   let result = "";
   const unsub = new Sig(() => (result = c.val), true);
-  Sig.tick();
+  tick();
 
   expect(result).to.equal("a");
   expect(d.val).to.equal("a");

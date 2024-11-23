@@ -3,7 +3,7 @@
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **431 bytes** (minified and brotlified)
+- Only **421 bytes** (minified and brotlified)
 - Fine grained updates (updates only when necessary)
 - Computations are lazy by default
 - Auto depedency tracking
@@ -18,7 +18,7 @@ npm install xsig
 ## Example
 
 ```js
-import { Sig } from "xsig";
+import { Sig, tick, autoTick } from "xsig";
 
 // A "data source".
 const number = new Sig(1);
@@ -35,14 +35,14 @@ const effect = new Sig(() => {
 }, /* here we specify that is an effect */ true);
 
 // logs "double is: 4".
-Sig.tick();
+tick();
 
 // does nothing.
-Sig.tick();
+tick();
 
 // if you don't want to call `tick()` everytime
 // you can setup a microtask scheduler:
-Sig.autoTick();
+autoTick();
 
 // logs "double is: 0" *almost instantly*
 number.val = 0;

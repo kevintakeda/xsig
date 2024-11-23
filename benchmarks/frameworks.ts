@@ -1,4 +1,4 @@
-import { Sig } from "../src";
+import { Sig, tick } from "../src";
 import { Signal } from "signal-polyfill";
 import { Reactive, stabilize } from "@reactively/core";
 import {
@@ -52,7 +52,7 @@ export const SigApi: SignalApi = {
   effect: (fn) => new Sig(fn, true),
   runSync: (fn) => {
     fn();
-    Sig.tick();
+    tick();
   },
   root: (fn) => fn(),
 };

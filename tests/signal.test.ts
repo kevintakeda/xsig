@@ -1,5 +1,5 @@
 import { expect, test, vi, describe } from "vitest";
-import { Sig } from "../src";
+import { Sig, tick } from "../src";
 
 describe("state", () => {
   test("store and return a value", () => {
@@ -238,7 +238,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(3);
     c.val = "c!";
     c.val = "c!!";
-    Sig.tick();
+    tick();
     expect(f.val).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
     a.val = false;
@@ -246,7 +246,7 @@ describe("effects", () => {
     expect(fSpy).toHaveBeenCalledTimes(4);
     b.val = "b!";
     b.val = "b!!";
-    Sig.tick();
+    tick();
     expect(fSpy).toHaveBeenCalledTimes(4);
     a.val = false;
     expect(fSpy).toHaveBeenCalledTimes(4);
@@ -318,7 +318,7 @@ describe("effects", () => {
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
     expect(spyD).toHaveBeenCalledTimes(2);
-    Sig.tick();
+    tick();
   });
 
   test("dispose effects", () => {
@@ -343,7 +343,7 @@ describe("effects", () => {
     expect(bSpy).toHaveBeenCalledTimes(1);
     a.val = "a!!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
-    Sig.tick();
+    tick();
 
     // can still be used as a data source
     const xSpy = vi.fn();
@@ -376,10 +376,10 @@ describe("effects", () => {
       true
     );
     s1.val = false;
-    Sig.tick();
+    tick();
     expect(result.val).toBe(0);
     s1.val = true;
-    Sig.tick();
+    tick();
     expect(result.val).toBe(1);
   });
 
@@ -393,10 +393,10 @@ describe("effects", () => {
     const d = new Sig(spyD);
     const spyE = vi.fn(() => d.val);
     new Sig(spyE, true);
-    Sig.tick();
+    tick();
     expect(spyE).toHaveBeenCalledTimes(1);
     a.val = 4;
-    Sig.tick();
+    tick();
     expect(spyE).toHaveBeenCalledTimes(2);
   });
 
@@ -407,10 +407,10 @@ describe("effects", () => {
       x.val
       return () => spy();
     }, true);
-    Sig.tick();
+    tick();
     expect(spy).toHaveBeenCalledTimes(0);
     x.val++;
-    Sig.tick();
+    tick();
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });

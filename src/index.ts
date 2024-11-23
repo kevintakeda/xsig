@@ -1,7 +1,8 @@
 let EFFECT_QUEUE: Array<Sig> = [],
   QUEUED = false,
   CURRENT: undefined | Sig,
-  queueFn: (() => void) | undefined;
+  queueFn: (() => void) | undefined,
+  eq = ((a1: any, a2: any) => a1 === a2);
 
 export interface NanoSignalOptions {
   effect?: boolean;
@@ -10,15 +11,15 @@ export interface NanoSignalOptions {
 
 export class Sig<T = unknown> {
   #effect: boolean | undefined;
-  #compute: (() => T) | undefined;
+  #compute: (() => T) | undefined | null;
   #cache: T | undefined | (() => void);
   #sources: Array<Sig> = [];
   #observers: Array<Sig> = [];
   #stale = true;
 
-  eq: (a1: unknown, a2: unknown) => boolean = ((a1, a2) => a1 === a2);
+  eq: (a1: unknown, a2: unknown) => boolean = eq;
 
-  constructor(value: (() => T) | T, effect?: boolean, equals?: (a1: unknown, a2: unknown) => boolean) {
+  constructor(value: (() => T) | T, effect?: boolean) {
     // @ts-ignore
     if (!!value?.call) {
       this.#compute = value as () => T;
@@ -30,7 +31,6 @@ export class Sig<T = unknown> {
     } else {
       this.#cache = value;
     }
-    if (equals) this.eq = equals;
   }
 
   // it updates itself (if necessary) and returns if the updated value is the same as before
@@ -77,7 +77,6 @@ export class Sig<T = unknown> {
     if (this.#compute) {
       this.e(true);
       this.#effect = false;
-      // @ts-expect-error null for less size
       this.#compute = null;
     }
     if (this.eq(this.#cache, newValue)) return
@@ -85,19 +84,19 @@ export class Sig<T = unknown> {
     this.#setStale();
     queueFn?.();
   }
+}
 
-  static tick() {
-    EFFECT_QUEUE.forEach(el => el.e())
-    EFFECT_QUEUE = []
-  }
+export function autoTick(fn = queueTick) {
+  queueFn = fn;
+}
 
-  static autoTick(fn = Sig.queueTick) {
-    queueFn = fn;
-  }
+export function tick() {
+  EFFECT_QUEUE.forEach(el => el.val)
+  EFFECT_QUEUE = []
+}
 
-  static queueTick() {
-    if (QUEUED) return
-    QUEUED = true;
-    queueMicrotask(() => (Sig.tick(), QUEUED = false));
-  }
+export function queueTick() {
+  if (QUEUED) return
+  QUEUED = true;
+  queueMicrotask(() => (tick(), QUEUED = false));
 }

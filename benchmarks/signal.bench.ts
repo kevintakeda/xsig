@@ -1,9 +1,9 @@
-import { assert, bench, describe } from "vitest";
+import { bench, describe } from "vitest";
 import {
   MaverickSignals,
-  SigApi,
   PreactSignals,
   Reactively,
+  SigApi,
   SignalApi,
   SignalPolyfill,
   SolidSignals,
