@@ -2,7 +2,7 @@ let EFFECT_QUEUE: Array<Sig> = [],
   QUEUED = false,
   CURRENT: undefined | Sig,
   queueFn: (() => void) | undefined,
-  eq = ((a1: any, a2: any) => a1 === a2);
+  eq = (a1: any, a2: any) => a1 === a2;
 
 export interface NanoSignalOptions {
   effect?: boolean;
@@ -35,33 +35,37 @@ export class Sig<T = unknown> {
 
   // it updates itself (if necessary) and returns if the updated value is the same as before
   #updateIfNecessary(): boolean {
-    return (!!this.#compute && this.#stale)
-      && (!this.#sources.length || this.#sources.some(el => !el.#updateIfNecessary()))
-      && (this.eq(this.#cache, this.e()));
+    return (
+      !!this.#compute &&
+      this.#stale &&
+      (!this.#sources.length ||
+        this.#sources.some((el) => !el.#updateIfNecessary())) &&
+      this.eq(this.#cache, this.#execute())
+    );
   }
 
   /** @internal executes the function and track dependencies */
-  e(disconnect = false) {
+  #execute(disconnect = false) {
     // @ts-ignore
-    if (!!this.#cache?.call) (this.#cache as (() => void))();
-    const prev = CURRENT, prevSources = this.#sources;
+    if (!!this.#cache?.call) (this.#cache as () => void)();
+    const prev = CURRENT,
+      prevSources = this.#sources;
     this.#sources = [];
     CURRENT = this;
-    if (!disconnect)
-      this.#cache = this.#compute?.();
+    if (!disconnect) this.#cache = this.#compute?.();
     this.#stale = false;
     prevSources.forEach((prev, i) => {
       if (this.#sources[i] !== prev && !~this.#sources.indexOf(prev))
-        prev.#observers.splice(prev.#observers.indexOf(this), 1)
-    })
+        prev.#observers.splice(prev.#observers.indexOf(this), 1);
+    });
     CURRENT = prev;
-    return this.#cache
+    return this.#cache;
   }
 
   #setStale() {
-    if (this.#effect) EFFECT_QUEUE.push(this)
-    else this.#observers.forEach(el => !el.#stale && el.#setStale())
-    this.#stale = true
+    if (this.#effect) EFFECT_QUEUE.push(this);
+    else this.#observers.forEach((el) => !el.#stale && el.#setStale());
+    this.#stale = true;
   }
 
   get val(): T {
@@ -69,17 +73,17 @@ export class Sig<T = unknown> {
       if (!~this.#observers.indexOf(CURRENT)) this.#observers.push(CURRENT);
       if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
     }
-    this.#updateIfNecessary()
+    this.#updateIfNecessary();
     return this.#cache as T;
   }
 
   set val(newValue: T | null) {
     if (this.#compute) {
-      this.e(true);
+      this.#execute(true);
       this.#effect = false;
       this.#compute = null;
     }
-    if (this.eq(this.#cache, newValue)) return
+    if (this.eq(this.#cache, newValue)) return;
     this.#cache = newValue as T;
     this.#setStale();
     queueFn?.();
@@ -91,12 +95,12 @@ export function autoTick(fn = queueTick) {
 }
 
 export function tick() {
-  EFFECT_QUEUE.forEach(el => el.val)
-  EFFECT_QUEUE = []
+  EFFECT_QUEUE.forEach((el) => el.val);
+  EFFECT_QUEUE = [];
 }
 
 export function queueTick() {
-  if (QUEUED) return
+  if (QUEUED) return;
   QUEUED = true;
-  queueMicrotask(() => (tick(), QUEUED = false));
+  queueMicrotask(() => (tick(), (QUEUED = false)));
 }

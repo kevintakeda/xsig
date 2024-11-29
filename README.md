@@ -3,7 +3,7 @@
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **421 bytes** (minified and brotlified)
+- Only **424 bytes** (minified and brotlified)
 - Fine grained updates (updates only when necessary)
 - Computations are lazy by default
 - Auto depedency tracking
@@ -32,7 +32,7 @@ const effect = new Sig(() => {
   return () => {
     /* clean up code if needed */
   };
-}, /* here we specify that is an effect */ true);
+}, /* here we se true to specify that is an effect */ true);
 
 // logs "double is: 4".
 tick();
@@ -47,7 +47,7 @@ autoTick();
 // logs "double is: 0" *almost instantly*
 number.val = 0;
 
-// To stop an effect just set a value.
+// To stop an effect later just set a value.
 setTimeout(() => {
   effect.val = null;
 }, 5000);
