@@ -1,4 +1,4 @@
-import { Sig, tick } from "../src";
+import { signal, flushSync, computed, effect } from "../src";
 import { Signal } from "signal-polyfill";
 import { Reactive, stabilize } from "@reactively/core";
 import {
@@ -21,6 +21,13 @@ import {
   effect as meffect,
   tick as mtick,
 } from "@maverick-js/signals";
+import {
+  signal as asignal,
+  computed as acomputed,
+  effect as aeffect,
+  startBatch,
+  endBatch,
+} from "alien-signals";
 
 export interface SignalApi {
   signal<T>(val: T): {
@@ -37,22 +44,22 @@ export interface SignalApi {
 
 export const SigApi: SignalApi = {
   signal: (val) => {
-    const S = new Sig(val);
+    const S = signal(val);
     return {
-      set: (v) => (S.val = v),
-      get: () => S.val,
+      set: (v) => (S.value = v),
+      get: () => S.value,
     };
   },
   computed: (fn) => {
-    const S = new Sig(fn);
+    const S = computed(fn);
     return {
-      get: () => S.val,
+      get: () => S.value,
     };
   },
-  effect: (fn) => new Sig(fn, true),
+  effect: (fn) => effect(fn),
   runSync: (fn) => {
     fn();
-    tick();
+    flushSync();
   },
   root: (fn) => fn(),
 };
@@ -95,6 +102,29 @@ export const PreactSignals: SignalApi = {
   },
   effect: (fn) => peffect(fn),
   runSync: (fn) => pbatch(fn),
+  root: (fn) => fn(),
+};
+
+export const AlienSignals: SignalApi = {
+  signal: (val) => {
+    const S = asignal(val);
+    return {
+      set: (v) => S(v),
+      get: () => S(),
+    };
+  },
+  computed: (fn) => {
+    const S = acomputed(fn);
+    return {
+      get: () => S(),
+    };
+  },
+  effect: (fn) => aeffect(fn),
+  runSync: (fn) => {
+    startBatch();
+    fn();
+    endBatch();
+  },
   root: (fn) => fn(),
 };
 

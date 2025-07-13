@@ -1,25 +1,26 @@
 // adapted from https://github.com/preactjs/signals/blob/main/packages/core/test/signal.test.tsx
 
 import { vi, it, expect } from "vitest";
-import { Sig, tick } from "../src";
+import { signal, flushSync, computed } from "../src";
+import { effect } from "alien-signals";
 
 it("should run computeds once for multiple dep changes", () => {
-  const a = new Sig("a");
-  const b = new Sig("b");
+  const a = signal("a");
+  const b = signal("b");
 
   const compute = vi.fn(() => {
     // debugger;
-    return a.val + b.val;
+    return a.value + b.value;
   });
-  const c = new Sig(compute);
+  const c = computed(compute);
 
-  expect(c.val).toBe("ab");
+  expect(c.value).toBe("ab");
   expect(compute).toHaveBeenCalledOnce();
   compute.mockClear();
 
-  a.val = "aa";
-  b.val = "bb";
-  c.val;
+  a.value = "aa";
+  b.value = "bb";
+  c.value;
   expect(compute).toHaveBeenCalledOnce();
 });
 
@@ -31,25 +32,25 @@ it("should drop A->B->A updates", async () => {
   //     C
   //     |
   //     D
-  const a = new Sig(2);
+  const a = signal(2);
 
-  const b = new Sig(() => a.val - 1);
-  const c = new Sig(() => a.val + b.val);
+  const b = computed(() => a.value - 1);
+  const c = computed(() => a.value + b.value);
 
-  const compute = vi.fn(() => "d: " + c.val);
-  const d = new Sig(compute);
+  const compute = vi.fn(() => "d: " + c.value);
+  const d = computed(compute);
 
   // Trigger read
-  expect(d.val).to.equal("d: 3");
+  expect(d.value).to.equal("d: 3");
   expect(compute).toHaveBeenCalledOnce();
   compute.mockClear();
 
-  a.val = 4;
-  d.val;
+  a.value = 4;
+  d.value;
   expect(compute).toHaveBeenCalledOnce();
 });
 
-it("should only update every new Sig once (diamond graph)", () => {
+it("should only update every computed once (diamond graph)", () => {
   // In this scenario "D" should only update once when "A" receives
   // an update. This is sometimes referred to as the "diamond" scenario.
   //     A
@@ -57,22 +58,22 @@ it("should only update every new Sig once (diamond graph)", () => {
   //  B     C
   //   \   /
   //     D
-  const a = new Sig("a");
-  const b = new Sig(() => a.val);
-  const c = new Sig(() => a.val);
+  const a = signal("a");
+  const b = computed(() => a.value);
+  const c = computed(() => a.value);
 
-  const spy = vi.fn(() => b.val + " " + c.val);
-  const d = new Sig(spy);
+  const spy = vi.fn(() => b.value + " " + c.value);
+  const d = computed(spy);
 
-  expect(d.val).to.equal("a a");
+  expect(d.value).to.equal("a a");
   expect(spy).toHaveBeenCalledOnce();
 
-  a.val = "aa";
-  expect(d.val).to.equal("aa aa");
+  a.value = "aa";
+  expect(d.value).to.equal("aa aa");
   expect(spy).toHaveBeenCalledTimes(2);
 });
 
-it("should only update every new Sig once (diamond graph + tail)", () => {
+it("should only update every computed once (diamond graph + tail)", () => {
   // "E" will be likely updated twice if our mark+sweep logic is buggy.
   //     A
   //   /   \
@@ -81,44 +82,44 @@ it("should only update every new Sig once (diamond graph + tail)", () => {
   //     D
   //     |
   //     E
-  const a = new Sig("a");
-  const b = new Sig(() => a.val);
-  const c = new Sig(() => a.val);
+  const a = signal("a");
+  const b = computed(() => a.value);
+  const c = computed(() => a.value);
 
-  const d = new Sig(() => b.val + " " + c.val);
+  const d = computed(() => b.value + " " + c.value);
 
-  const spy = vi.fn(() => d.val);
-  const e = new Sig(spy);
+  const spy = vi.fn(() => d.value);
+  const e = computed(spy);
 
-  expect(e.val).to.equal("a a");
+  expect(e.value).to.equal("a a");
   expect(spy).toHaveBeenCalledOnce();
 
-  a.val = "aa";
-  expect(e.val).to.equal("aa aa");
+  a.value = "aa";
+  expect(e.value).to.equal("aa aa");
   expect(spy).toHaveBeenCalledTimes(2);
 });
 
 it("should bail out if result is the same", () => {
-  // Bail out if value of "B" never changes
+  // Bail out if valueue of "B" never changes
   // A->B->C
-  const a = new Sig("a");
-  const b = new Sig(() => {
-    a.val;
+  const a = signal("a");
+  const b = computed(() => {
+    a.value;
     return "foo";
   });
 
-  const spy = vi.fn(() => b.val);
-  const c = new Sig(spy);
+  const spy = vi.fn(() => b.value);
+  const c = computed(spy);
 
-  expect(c.val).to.equal("foo");
+  expect(c.value).to.equal("foo");
   expect(spy).toHaveBeenCalledOnce();
 
-  a.val = "aa";
-  expect(c.val).to.equal("foo");
+  a.value = "aa";
+  expect(c.value).to.equal("foo");
   expect(spy).toHaveBeenCalledOnce();
 });
 
-it("should only update every new Sig once (jagged diamond graph + tails)", () => {
+it("should only update every computed once (jagged diamond graph + tails)", () => {
   // "F" and "G" will be likely updated twice if our mark+sweep logic is buggy.
   //     A
   //   /   \
@@ -129,55 +130,55 @@ it("should only update every new Sig once (jagged diamond graph + tails)", () =>
   //     E
   //   /   \
   //  F     G
-  const a = new Sig("a");
+  const a = signal("a");
 
-  const b = new Sig(() => a.val);
-  const c = new Sig(() => a.val);
+  const b = computed(() => a.value);
+  const c = computed(() => a.value);
 
-  const d = new Sig(() => c.val);
+  const d = computed(() => c.value);
 
-  const eSpy = vi.fn(() => b.val + " " + d.val);
-  const e = new Sig(eSpy);
+  const eSpy = vi.fn(() => b.value + " " + d.value);
+  const e = computed(eSpy);
 
-  const fSpy = vi.fn(() => e.val);
-  const f = new Sig(fSpy);
-  const gSpy = vi.fn(() => e.val);
-  const g = new Sig(gSpy);
+  const fSpy = vi.fn(() => e.value);
+  const f = computed(fSpy);
+  const gSpy = vi.fn(() => e.value);
+  const g = computed(gSpy);
 
-  expect(f.val).to.equal("a a");
+  expect(f.value).to.equal("a a");
   expect(fSpy).toHaveBeenCalledOnce();
 
-  expect(g.val).to.equal("a a");
+  expect(g.value).to.equal("a a");
   expect(gSpy).toHaveBeenCalledOnce();
 
   eSpy.mockClear();
   fSpy.mockClear();
   gSpy.mockClear();
 
-  a.val = "b";
+  a.value = "b";
 
-  expect(e.val).to.equal("b b");
+  expect(e.value).to.equal("b b");
   expect(eSpy).toHaveBeenCalledOnce();
 
-  expect(f.val).to.equal("b b");
+  expect(f.value).to.equal("b b");
   expect(fSpy).toHaveBeenCalledOnce();
 
-  expect(g.val).to.equal("b b");
+  expect(g.value).to.equal("b b");
   expect(gSpy).toHaveBeenCalledOnce();
 
   eSpy.mockClear();
   fSpy.mockClear();
   gSpy.mockClear();
 
-  a.val = "c";
+  a.value = "c";
 
-  expect(e.val).to.equal("c c");
+  expect(e.value).to.equal("c c");
   expect(eSpy).toHaveBeenCalledOnce();
 
-  expect(f.val).to.equal("c c");
+  expect(f.value).to.equal("c c");
   expect(fSpy).toHaveBeenCalledOnce();
 
-  expect(g.val).to.equal("c c");
+  expect(g.value).to.equal("c c");
   expect(gSpy).toHaveBeenCalledOnce();
 
   // top to bottom
@@ -190,17 +191,17 @@ it("should only subscribe to signals listened to", () => {
   //    *A
   //   /   \
   // *B     C <- we don't listen to C
-  const a = new Sig("a");
+  const a = signal("a");
 
-  const b = new Sig(() => a.val);
-  const spy = vi.fn(() => a.val);
-  new Sig(spy);
+  const b = computed(() => a.value);
+  const spy = vi.fn(() => a.value);
+  computed(spy);
 
-  expect(b.val).to.equal("a");
+  expect(b.value).to.equal("a");
   expect(spy).not.toHaveBeenCalled();
 
-  a.val = "aa";
-  expect(b.val).to.equal("aa");
+  a.value = "aa";
+  expect(b.value).to.equal("aa");
   expect(spy).not.toHaveBeenCalled();
 });
 
@@ -213,84 +214,84 @@ it("should only subscribe to signals listened to", () => {
   // *B     D <- we don't listen to C
   //  |
   // *C
-  const a = new Sig("a");
-  const spyB = vi.fn(() => a.val);
-  const b = new Sig(spyB);
+  const a = signal("a");
+  const spyB = vi.fn(() => a.value);
+  const b = computed(spyB);
 
-  const spyC = vi.fn(() => b.val);
-  const c = new Sig(spyC);
+  const spyC = vi.fn(() => b.value);
+  const c = computed(spyC);
 
-  const d = new Sig(() => a.val);
+  const d = computed(() => a.value);
 
   let result = "";
-  const unsub = new Sig(() => (result = c.val), true);
-  tick();
+  const unsub = effect(() => (result = c.value));
+  flushSync();
 
   expect(result).to.equal("a");
-  expect(d.val).to.equal("a");
+  expect(d.value).to.equal("a");
 
   spyB.mockClear();
   spyC.mockClear();
-  unsub.val = ""; // unsubscribe
+  unsub(); // unsubscribe
 
-  a.val = "aa";
+  a.value = "aa";
 
   expect(spyB).not.toHaveBeenCalled();
   expect(spyC).not.toHaveBeenCalled();
-  expect(d.val).to.equal("aa");
+  expect(d.value).to.equal("aa");
 });
 
 it("should ensure subs update even if one dep unmarks it", () => {
-  // In this scenario "C" always returns the same value. When "A"
+  // In this scenario "C" always returns the same valueue. When "A"
   // changes, "B" will update, then "C" at which point its update
   // to "D" will be unmarked. But "D" must still update because
   // "B" marked it. If "D" isn't updated, then we have a bug.
   //     A
   //   /   \
-  //  B     *C <- returns same value every time
+  //  B     *C <- returns same valueue every time
   //   \   /
   //     D
-  const a = new Sig("a");
-  const b = new Sig(() => a.val);
-  const c = new Sig(() => {
-    a.val;
+  const a = signal("a");
+  const b = computed(() => a.value);
+  const c = computed(() => {
+    a.value;
     return "c";
   });
-  const spy = vi.fn(() => b.val + " " + c.val);
-  const d = new Sig(spy);
-  expect(d.val).to.equal("a c");
+  const spy = vi.fn(() => b.value + " " + c.value);
+  const d = computed(spy);
+  expect(d.value).to.equal("a c");
   spy.mockClear();
 
-  a.val = "aa";
-  d.val;
+  a.value = "aa";
+  d.value;
   expect(spy).toHaveReturnedWith("aa c");
 });
 
 it("should ensure subs update even if two deps unmark it", () => {
   // In this scenario both "C" and "D" always return the same
-  // value. But "E" must still update because "A"  marked it.
+  // valueue. But "E" must still update because "A"  marked it.
   // If "E" isn't updated, then we have a bug.
   //     A
   //   / | \
   //  B *C *D
   //   \ | /
   //     E
-  const a = new Sig("a");
-  const b = new Sig(() => a.val);
-  const c = new Sig(() => {
-    a.val;
+  const a = signal("a");
+  const b = computed(() => a.value);
+  const c = computed(() => {
+    a.value;
     return "c";
   });
-  const d = new Sig(() => {
-    a.val;
+  const d = computed(() => {
+    a.value;
     return "d";
   });
-  const spy = vi.fn(() => b.val + " " + c.val + " " + d.val);
-  const e = new Sig(spy);
-  expect(e.val).to.equal("a c d");
+  const spy = vi.fn(() => b.value + " " + c.value + " " + d.value);
+  const e = computed(spy);
+  expect(e.value).to.equal("a c d");
   spy.mockClear();
 
-  a.val = "aa";
-  e.val;
+  a.value = "aa";
+  e.value;
   expect(spy).toHaveReturnedWith("aa c d");
 });

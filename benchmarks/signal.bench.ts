@@ -1,5 +1,6 @@
 import { bench, describe } from "vitest";
 import {
+  AlienSignals,
   MaverickSignals,
   PreactSignals,
   Reactively,
@@ -9,15 +10,15 @@ import {
   SolidSignals,
 } from "./frameworks";
 
-function runAll(op: (api: SignalApi) => (() => void)) {
+function runAll(op: (api: SignalApi) => () => void) {
   const x1 = op(SigApi);
   bench("xsig", () => {
-    x1()
+    x1();
   });
 
   const x2 = op(SolidSignals);
   bench("solid-js", () => {
-    x2()
+    x2();
   });
 
   const x3 = op(PreactSignals);
@@ -39,14 +40,18 @@ function runAll(op: (api: SignalApi) => (() => void)) {
   bench("signal-polyfill", () => {
     x6();
   });
+
+  const x7 = op(AlienSignals);
+  bench("alien-signals", () => {
+    x7();
+  });
 }
 
 describe("simple set+get", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
-      const s2 = api.computed(() => s1.get());
-      return () => (s1.set(s1.get() + 1), s2.get());
+      return () => s1.set(s1.get() + 1);
     });
   }
   runAll(op);
@@ -68,7 +73,7 @@ describe("deep set+get", () => {
       return () => {
         s1.set(s1.get() + 1);
         s10.get();
-      }
+      };
     });
   }
   runAll(op);
@@ -101,7 +106,7 @@ describe("wide get", () => {
 
       return () => {
         s10.get();
-      }
+      };
     });
   }
   runAll(op);
@@ -133,7 +138,7 @@ describe("wide set+get", () => {
       );
       return () => {
         s5.set(s.get() + 1);
-      }
+      };
     });
   }
   runAll(op);
@@ -159,7 +164,7 @@ describe("simple effect", () => {
           s.set(s.get() + 1);
           s.set(s.get() + 1);
         });
-      }
+      };
     });
   }
   runAll(op);
@@ -182,7 +187,7 @@ describe("tree effects", () => {
           s3.set(s3.get() + 1);
           s1.set(s1.get() + 1);
         });
-      }
+      };
     });
   }
   runAll(op);
@@ -204,7 +209,7 @@ describe("effect with conditions", () => {
           s1.set(false);
           s1.set(true);
         });
-      }
+      };
     });
   }
   runAll(op);
@@ -248,19 +253,18 @@ describe("wide effects", () => {
           s5.set(s5.get() + 1);
           s9.set(s9.get() + 1);
         });
-      }
+      };
     });
   }
   runAll(op);
 });
-
 
 describe("1 source -> 1 computed -> 100 computeds", () => {
   function op(api: SignalApi) {
     return api.root(() => {
       const s1 = api.signal(1);
       const s2 = api.computed(() => s1.get());
-      const arr: any[] = []
+      const arr: any[] = [];
       api.runSync(() => {
         for (let i = 0; i < 100; i++) {
           arr.push(api.computed(() => s2.get()));
@@ -269,14 +273,13 @@ describe("1 source -> 1 computed -> 100 computeds", () => {
       return () => {
         api.runSync(() => {
           s1.set(s1.get() + 1);
-          arr.forEach(el => el.get())
+          arr.forEach((el) => el.get());
         });
-      }
+      };
     });
   }
   runAll(op);
 });
-
 
 describe("1 source -> 1 computed -> 100 effects", () => {
   function op(api: SignalApi) {
@@ -288,34 +291,37 @@ describe("1 source -> 1 computed -> 100 effects", () => {
           api.effect(() => s2.get());
         }
       });
-      let j = 0
+      let j = 0;
       return () => {
         api.runSync(() => {
           s1.set(s1.get() + 1);
         });
-      }
+      };
     });
   }
   runAll(op);
 });
 
-
 describe("1 to 1 effects", () => {
   function op(api: SignalApi) {
     return api.root(() => {
-      let count = 0, all: any[] = [];
+      let count = 0,
+        all: any[] = [];
       for (let i = 0; i < 1000; i++) {
         const a = api.signal(i);
-        all.push(a)
-        api.effect(() => { a.get(); count++; });
+        all.push(a);
+        api.effect(() => {
+          a.get();
+          count++;
+        });
       }
       return () => {
         count = 0;
         api.runSync(() => {
-          all.forEach(el => el.set(el.get() + 1));
+          all.forEach((el) => el.set(el.get() + 1));
         });
         console.assert(count === 1000);
-      }
+      };
     });
   }
   runAll(op);

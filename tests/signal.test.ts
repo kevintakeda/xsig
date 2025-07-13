@@ -1,174 +1,176 @@
 import { expect, test, vi, describe } from "vitest";
-import { Sig, tick } from "../src";
+import { signal, effect, computed, flushSync } from "../src";
 
 describe("state", () => {
   test("store and return a value", () => {
-    const a = new Sig(1);
-    expect(a.val).toBe(1);
+    const a = signal(1);
+    expect(a.value).toBe(1);
   });
 
   test("is updating", () => {
-    const a = new Sig(1);
-    a.val = 2;
-    expect(a.val).toBe(2);
+    const a = signal(1);
+    a.value = 2;
+    expect(a.value).toBe(2);
   });
 
   test("is always updating", () => {
-    const a = new Sig(1);
-    a.val = 2;
-    expect(a.val).toBe(2);
-    a.val = 3;
-    expect(a.val).toBe(3);
+    const a = signal(1);
+    a.value = 2;
+    expect(a.value).toBe(2);
+    a.value = 3;
+    expect(a.value).toBe(3);
   });
 });
 
 describe("memos", () => {
   test("is caching", () => {
-    const a = new Sig(1);
-    const b = new Sig(2);
-    const cSpy = vi.fn(() => a.val + b.val);
-    const c = new Sig(cSpy);
-    expect(c.val).toBe(3);
-    expect(c.val).toBe(3);
-    expect(c.val).toBe(3);
+    const a = signal(1);
+    const b = signal(2);
+    const cSpy = vi.fn(() => a.value + b.value);
+    const c = computed(cSpy);
+    expect(c.value).toBe(3);
+    expect(c.value).toBe(3);
+    expect(c.value).toBe(3);
     expect(cSpy).toHaveBeenCalledTimes(1);
   });
 
   test("is lazy", () => {
-    const a = new Sig("a");
-    const b = new Sig("b");
-    const cSpy = vi.fn(() => a.val + b.val);
-    const c = new Sig(cSpy);
-    a.val = "a!";
-    b.val = "b!";
+    const a = signal("a");
+    const b = signal("b");
+    const cSpy = vi.fn(() => a.value + b.value);
+    const c = computed(cSpy);
+    a.value = "a!";
+    b.value = "b!";
     expect(cSpy).toHaveBeenCalledTimes(0);
-    expect(c.val).toBe("a!b!");
+    expect(c.value).toBe("a!b!");
     expect(cSpy).toHaveBeenCalledTimes(1);
   });
 
   test("dynamic returns", () => {
-    const a = new Sig(false);
-    const bSpy = vi.fn(() => (a.val ? "1" : "2"));
-    const b = new Sig(bSpy);
-    expect(b.val).toBe("2");
-    a.val = true;
-    expect(b.val).toBe("1");
-    a.val = false;
-    expect(b.val).toBe("2");
-    a.val = true;
-    expect(b.val).toBe("1");
+    const a = signal(false);
+    const bSpy = vi.fn(() => (a.value ? "1" : "2"));
+    const b = computed(bSpy);
+    expect(b.value).toBe("2");
+    a.value = true;
+    expect(b.value).toBe("1");
+    a.value = false;
+    expect(b.value).toBe("2");
+    a.value = true;
+    expect(b.value).toBe("1");
     expect(bSpy).toHaveBeenCalledTimes(4);
   });
 
   test("unsubscribe invisible dependencies", () => {
-    const a = new Sig(false);
-    const b = new Sig("b");
-    const c = new Sig("c");
+    const a = signal(false);
+    const b = signal("b");
+    const c = signal("c");
 
-    const dSpy = vi.fn(() => (a.val ? b.val : c.val));
-    const d = new Sig(dSpy);
-    expect(d.val).toBe("c");
+    const dSpy = vi.fn(() => (a.value ? b.value : c.value));
+    const d = computed(dSpy);
+    expect(d.value).toBe("c");
 
-    a.val = true;
-    a.val = false;
-    expect(d.val).toBe("c");
+    a.value = true;
+    a.value = false;
+    expect(d.value).toBe("c");
     expect(dSpy).toHaveBeenCalledTimes(2);
-    b.val = "b!";
-    b.val = "b!!";
-    expect(d.val).toBe("c");
+    b.value = "b!";
+    b.value = "b!!";
+    expect(d.value).toBe("c");
     expect(dSpy).toHaveBeenCalledTimes(2);
 
-    a.val = true;
-    expect(d.val).toBe("b!!");
+    a.value = true;
+    expect(d.value).toBe("b!!");
     expect(dSpy).toHaveBeenCalledTimes(3);
 
-    c.val = "c!";
-    c.val = "c!!";
-    expect(d.val).toBe("b!!");
+    c.value = "c!";
+    c.value = "c!!";
+    expect(d.value).toBe("b!!");
     expect(dSpy).toHaveBeenCalledTimes(3);
 
-    a.val = false;
-    expect(d.val).toBe("c!!");
+    a.value = false;
+    expect(d.value).toBe("c!!");
     expect(dSpy).toHaveBeenCalledTimes(4);
   });
 });
 
 describe("graph", () => {
   test("diamond runs once", () => {
-    const a = new Sig("a");
-    const b = new Sig(() => a.val);
-    const c = new Sig(() => a.val);
+    const a = signal("a");
+    const b = computed(() => a.value);
+    const c = computed(() => a.value);
 
-    const spy = vi.fn(() => b.val + c.val);
-    const d = new Sig(spy);
+    const spy = vi.fn(() => b.value + c.value);
+    const d = computed(spy);
 
-    expect(d.val).toBe("aa");
+    expect(d.value).toBe("aa");
     expect(spy).toHaveBeenCalledTimes(1);
 
-    a.val = "a!";
+    a.value = "a!";
 
-    expect(d.val).toBe("a!a!");
+    expect(d.value).toBe("a!a!");
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
   test("deep nested memos", () => {
-    const a = new Sig(2);
-    const spyB = vi.fn(() => a.val + 1);
-    const b = new Sig(spyB);
-    const spyC = vi.fn(() => a.val + b.val);
-    const c = new Sig(spyC);
-    const spyD = vi.fn(() => a.val + b.val + c.val);
-    const d = new Sig(spyD);
-    expect(d.val).toBe(10);
+    const a = signal(2);
+    const spyB = vi.fn(() => a.value + 1);
+    const b = computed(spyB);
+    const spyC = vi.fn(() => a.value + b.value);
+    const c = computed(spyC);
+    const spyD = vi.fn(() => a.value + b.value + c.value);
+    const d = computed(spyD);
+    expect(d.value).toBe(10);
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
     expect(spyD).toHaveBeenCalledTimes(1);
-    a.val = 4;
-    d.val;
+    a.value = 4;
+    d.value;
     expect(spyB).toHaveBeenCalledTimes(2);
     expect(spyC).toHaveBeenCalledTimes(2);
     expect(spyD).toHaveBeenCalledTimes(2);
   });
 
   test("repeating computeds runs once", () => {
-    const a = new Sig(1);
-    const spyB = vi.fn(() => a.val + a.val);
-    const b = new Sig(spyB);
-    const spyC = vi.fn(() => a.val + b.val + a.val + b.val);
-    const c = new Sig(spyC);
-    const spyD = vi.fn(() => a.val + b.val + c.val + a.val + b.val + c.val);
-    const d = new Sig(spyD);
-    expect(d.val).toBe(18);
+    const a = signal(1);
+    const spyB = vi.fn(() => a.value + a.value);
+    const b = computed(spyB);
+    const spyC = vi.fn(() => a.value + b.value + a.value + b.value);
+    const c = computed(spyC);
+    const spyD = vi.fn(
+      () => a.value + b.value + c.value + a.value + b.value + c.value
+    );
+    const d = computed(spyD);
+    expect(d.value).toBe(18);
     expect(spyB).toHaveBeenCalledTimes(1);
     expect(spyC).toHaveBeenCalledTimes(1);
     expect(spyD).toHaveBeenCalledTimes(1);
-    a.val = 4;
-    d.val;
+    a.value = 4;
+    d.value;
     expect(spyB).toHaveBeenCalledTimes(2);
     expect(spyC).toHaveBeenCalledTimes(2);
     expect(spyD).toHaveBeenCalledTimes(2);
   });
 
   test("chained memos", () => {
-    const a = new Sig("a");
-    const spyB = vi.fn(() => a.val);
-    const b = new Sig(spyB);
-    const c = new Sig(() => b.val);
-    const d = new Sig(() => c.val);
+    const a = signal("a");
+    const spyB = vi.fn(() => a.value);
+    const b = computed(spyB);
+    const c = computed(() => b.value);
+    const d = computed(() => c.value);
 
-    expect(a.val).toBe("a");
-    expect(b.val).toBe("a");
-    expect(c.val).toBe("a");
-    expect(d.val).toBe("a");
-    expect(b.val).toBe("a");
+    expect(a.value).toBe("a");
+    expect(b.value).toBe("a");
+    expect(c.value).toBe("a");
+    expect(d.value).toBe("a");
+    expect(b.value).toBe("a");
     expect(spyB).toHaveBeenCalledTimes(1);
 
-    a.val = "a!";
-    expect(a.val).toBe("a!");
-    expect(b.val).toBe("a!");
-    expect(c.val).toBe("a!");
-    expect(d.val).toBe("a!");
-    expect(b.val).toBe("a!");
+    a.value = "a!";
+    expect(a.value).toBe("a!");
+    expect(b.value).toBe("a!");
+    expect(c.value).toBe("a!");
+    expect(d.value).toBe("a!");
+    expect(b.value).toBe("a!");
     expect(spyB).toHaveBeenCalledTimes(2);
   });
 
@@ -182,21 +184,21 @@ describe("graph", () => {
   //   |
   //   F
   test("diamond with tail (updates and runs once)", () => {
-    const a = new Sig("a");
-    const b = new Sig(() => a.val);
-    const c = new Sig(() => a.val);
-    const dSpy = vi.fn(() => b.val + c.val);
-    const d = new Sig(dSpy);
-    const e = new Sig(() => d.val);
-    const f = new Sig(() => d.val);
+    const a = signal("a");
+    const b = computed(() => a.value);
+    const c = computed(() => a.value);
+    const dSpy = vi.fn(() => b.value + c.value);
+    const d = computed(dSpy);
+    const e = computed(() => d.value);
+    const f = computed(() => d.value);
 
-    expect(e.val).toBe("aa");
-    expect(f.val).toBe("aa");
+    expect(e.value).toBe("aa");
+    expect(f.value).toBe("aa");
     expect(dSpy).toBeCalledTimes(1);
 
-    a.val = "b";
-    expect(e.val).toBe("bb");
-    expect(f.val).toBe("bb");
+    a.value = "b";
+    expect(e.value).toBe("bb");
+    expect(f.value).toBe("bb");
     expect(dSpy).toBeCalledTimes(2);
   });
 
@@ -206,238 +208,184 @@ describe("graph", () => {
   //    \    /
   //      G
   test("tree (updates and runs once)", () => {
-    const a = new Sig("a");
-    const b = new Sig("b");
-    const c = new Sig("c");
-    const d = new Sig("d");
-    const e = new Sig(() => a.val + b.val);
-    const f = new Sig(() => c.val + d.val);
-    const gSpy = vi.fn(() => e.val + f.val);
-    const g = new Sig(gSpy);
-    expect(e.val).toBe("ab");
-    expect(f.val).toBe("cd");
+    const a = signal("a");
+    const b = signal("b");
+    const c = signal("c");
+    const d = signal("d");
+    const e = computed(() => a.value + b.value);
+    const f = computed(() => c.value + d.value);
+    const gSpy = vi.fn(() => e.value + f.value);
+    const g = computed(gSpy);
+    expect(e.value).toBe("ab");
+    expect(f.value).toBe("cd");
     expect(gSpy).toBeCalledTimes(0);
-    expect(g.val).toBe("abcd");
+    expect(g.value).toBe("abcd");
     expect(gSpy).toBeCalledTimes(1);
-    d.val = "d!";
-    c.val = "c!";
-    b.val = "b!";
-    a.val = "a!";
-    expect(e.val).toBe("a!b!");
-    expect(f.val).toBe("c!d!");
+    d.value = "d!";
+    c.value = "c!";
+    b.value = "b!";
+    a.value = "a!";
+    expect(e.value).toBe("a!b!");
+    expect(f.value).toBe("c!d!");
     expect(gSpy).toBeCalledTimes(1);
-    expect(g.val).toBe("a!b!c!d!");
+    expect(g.value).toBe("a!b!c!d!");
     expect(gSpy).toBeCalledTimes(2);
   });
 });
 
 describe("effects", () => {
   test("effects", () => {
-    const a = new Sig(1);
-    const b = new Sig(2);
-    const cSpy = vi.fn(() => a.val + b.val);
-    const c = new Sig(cSpy, true);
+    const a = signal(1);
+    const b = signal(2);
+    const cSpy = vi.fn(() => a.value + b.value);
+    const c = effect(cSpy);
     expect(cSpy).toHaveBeenCalledTimes(0);
-    expect(c.val).toBe(3);
-    expect(c.val).toBe(3);
+    a.value = 10;
+    flushSync();
     expect(cSpy).toHaveBeenCalledTimes(1);
-    a.val = 10;
-    expect(cSpy).toHaveBeenCalledTimes(1);
-    expect(c.val).toBe(12);
+    b.value = 20;
+    flushSync();
     expect(cSpy).toHaveBeenCalledTimes(2);
-    b.val = 20;
-    expect(cSpy).toHaveBeenCalledTimes(2);
-    expect(c.val).toBe(30);
-    expect(cSpy).toHaveBeenCalledTimes(3);
   });
 
   test("unsubscribe invisible dependencies (memos)", () => {
-    const a = new Sig(true);
-    const b = new Sig("b");
-    const c = new Sig("c");
-    const fSpy = vi.fn(() => (a.val ? b.val : c.val));
-    const f = new Sig(fSpy);
+    const a = signal(true);
+    const b = signal("b");
+    const c = signal("c");
+    const fSpy = vi.fn(() => (a.value ? b.value : c.value));
+    const f = computed(fSpy);
     expect(fSpy).toHaveBeenCalledTimes(0);
-    expect(f.val).toBe("b");
+    expect(f.value).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(1);
-    a.val = false;
-    expect(f.val).toBe("c");
+    a.value = false;
+    expect(f.value).toBe("c");
     expect(fSpy).toHaveBeenCalledTimes(2);
-    a.val = true;
-    expect(f.val).toBe("b");
+    a.value = true;
+    expect(f.value).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
-    c.val = "c!";
-    c.val = "c!!";
-    tick();
-    expect(f.val).toBe("b");
+    c.value = "c!";
+    c.value = "c!!";
+    flushSync();
+    expect(f.value).toBe("b");
     expect(fSpy).toHaveBeenCalledTimes(3);
-    a.val = false;
-    expect(f.val).toBe("c!!");
+    a.value = false;
+    expect(f.value).toBe("c!!");
     expect(fSpy).toHaveBeenCalledTimes(4);
-    b.val = "b!";
-    b.val = "b!!";
-    tick();
+    b.value = "b!";
+    b.value = "b!!";
+    flushSync();
     expect(fSpy).toHaveBeenCalledTimes(4);
-    a.val = false;
+    a.value = false;
     expect(fSpy).toHaveBeenCalledTimes(4);
-    b.val = "b!!!";
+    b.value = "b!!!";
     expect(fSpy).toHaveBeenCalledTimes(4);
-  });
-
-  test("unsubscribe invisible dependencies (effects)", () => {
-    const a = new Sig(true);
-    const b = new Sig("b");
-    const c = new Sig("c");
-    const d = new Sig(() => b.val, true);
-    const e = new Sig(() => c.val, true);
-    const fSpy = vi.fn(() => (a.val ? d.val : e.val));
-    const f = new Sig(fSpy, true);
-
-    expect(f.val).toBe("b");
-    expect(fSpy).toHaveBeenCalledTimes(1);
-    a.val = false;
-    expect(f.val).toBe("c");
-    expect(fSpy).toHaveBeenCalledTimes(2);
-    a.val = true;
-    expect(f.val).toBe("b");
-    c.val = "c!";
-    c.val = "c!!";
-    expect(fSpy).toHaveBeenCalledTimes(3);
-    a.val = false;
-    expect(f.val).toBe("c!!");
-    b.val = "b!";
-    b.val = "b!!";
-    expect(fSpy).toHaveBeenCalledTimes(4);
-    a.val = false;
-    expect(fSpy).toHaveBeenCalledTimes(4);
-    b.val = "b!!!";
-    expect(fSpy).toHaveBeenCalledTimes(4);
-  });
-
-  test("nested effects run once", () => {
-    const a = new Sig(2);
-    const spyB = vi.fn(() => a.val);
-    const b = new Sig(spyB, true);
-    const spyC = vi.fn(() => a.val);
-    const c = new Sig(spyC, true);
-    const spyD = vi.fn(() => a.val);
-    const d = new Sig(spyD, true);
-
-    // read a
-    expect(a.val).toBe(2);
-    expect(spyB).toHaveBeenCalledTimes(0);
-    expect(spyC).toHaveBeenCalledTimes(0);
-    expect(spyD).toHaveBeenCalledTimes(0);
-
-    // read effect
-    expect(d.val).toBe(2);
-    expect(spyD).toHaveBeenCalledTimes(1);
-
-    // set twice
-    a.val = 4;
-    a.val = 4;
-    expect(spyB).toHaveBeenCalledTimes(0);
-    expect(spyC).toHaveBeenCalledTimes(0);
-    expect(spyD).toHaveBeenCalledTimes(1);
-
-    // read all values
-    expect(a.val).toBe(4);
-    expect(b.val).toBe(4);
-    expect(c.val).toBe(4);
-    expect(d.val).toBe(4);
-    expect(spyB).toHaveBeenCalledTimes(1);
-    expect(spyC).toHaveBeenCalledTimes(1);
-    expect(spyD).toHaveBeenCalledTimes(2);
-    tick();
   });
 
   test("dispose effects", () => {
-    const a = new Sig("a");
-    const bSpy = vi.fn(() => a.val);
-    const b = new Sig(bSpy, true);
+    const a = signal("a");
+    const bSpy = vi.fn(() => a.value);
+    const b = effect(bSpy);
     expect(bSpy).toHaveBeenCalledTimes(0);
 
     // read effect
-    expect(b.val).toBe("a");
+    flushSync();
     expect(bSpy).toHaveBeenCalledTimes(1);
 
     // set a
-    a.val = "a!";
+    a.value = "a!";
     expect(bSpy).toHaveBeenCalledTimes(1);
 
     // dispose effect
-    b.val = null;
-    expect(b.val).toBe(null);
+    b();
     expect(bSpy).toHaveBeenCalledTimes(1);
-    a.val = "a!!";
+    a.value = "a!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
-    a.val = "a!!!";
+    a.value = "a!!!";
     expect(bSpy).toHaveBeenCalledTimes(1);
-    tick();
-
-    // can still be used as a data source
-    const xSpy = vi.fn();
-    const x = new Sig(() => {
-      xSpy();
-      return b.val;
-    });
-    b.val = "!";
-    expect(x.val).toBe("!");
-    expect(xSpy).toHaveBeenCalledTimes(1);
+    flushSync();
   });
 
   test("effect with conditions", () => {
-    const s1 = new Sig(true);
-    const s2 = new Sig("a");
-    const s3 = new Sig("b");
-    const s4 = new Sig(() => s2.val);
-    const s5 = new Sig(() => s3.val);
-    let result = { val: 0 };
-    new Sig(() => {
-      if (s1.val) {
-        s4.val;
-        result.val = 1;
+    const s1 = signal(true);
+    const s2 = signal("a");
+    const s3 = signal("b");
+    const s4 = computed(() => s2.value);
+    const s5 = computed(() => s3.value);
+    let result = { value: 0 };
+    effect(() => {
+      if (s1.value) {
+        s4.value;
+        result.value = 1;
       } else {
-        s5.val;
-        result.val = 0;
+        s5.value;
+        result.value = 0;
       }
-    }, true);
-    s1.val = false;
-    tick();
-    expect(result.val).toBe(0);
-    s1.val = true;
-    tick();
-    expect(result.val).toBe(1);
+    });
+    s1.value = false;
+    flushSync();
+    expect(result.value).toBe(0);
+    s1.value = true;
+    flushSync();
+    expect(result.value).toBe(1);
   });
 
   test("effect with nested dependencies", () => {
-    const a = new Sig(2);
-    const spyB = vi.fn(() => a.val + 1);
-    const b = new Sig(spyB);
-    const spyC = vi.fn(() => b.val);
-    const c = new Sig(spyC);
-    const spyD = vi.fn(() => c.val);
-    const d = new Sig(spyD);
-    const spyE = vi.fn(() => d.val);
-    new Sig(spyE, true);
-    tick();
+    const a = signal(2);
+    const spyB = vi.fn(() => a.value + 1);
+    const b = computed(spyB);
+    const spyC = vi.fn(() => b.value);
+    const c = computed(spyC);
+    const spyD = vi.fn(() => c.value);
+    const d = computed(spyD);
+    const spyE = vi.fn(() => d.value);
+    effect(spyE);
+    flushSync();
     expect(spyE).toHaveBeenCalledTimes(1);
-    a.val = 4;
-    tick();
+    a.value = 4;
+    flushSync();
     expect(spyE).toHaveBeenCalledTimes(2);
   });
 
   test("cleanup effect", () => {
     const spy = vi.fn();
-    const x = new Sig(1);
-    new Sig(() => {
-      x.val;
+    const x = signal(1);
+    effect(() => {
+      x.value;
       return () => spy();
-    }, true);
-    tick();
+    });
+    flushSync();
     expect(spy).toHaveBeenCalledTimes(0);
-    x.val++;
-    tick();
+    x.value++;
+    flushSync();
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test("can nest effects", () => {
+    const eff1 = vi.fn();
+    const eff2 = vi.fn();
+    const a = signal(1);
+
+    effect(() => {
+      eff1();
+      a.value;
+      const inner = effect(() => {
+        a.value;
+        eff2();
+      });
+      return () => inner();
+    });
+
+    expect(eff1).toHaveBeenCalledTimes(0);
+    expect(eff2).toHaveBeenCalledTimes(0);
+
+    a.value++;
+    flushSync();
+    expect(eff1).toHaveBeenCalledTimes(1);
+    expect(eff2).toHaveBeenCalledTimes(1);
+
+    a.value++;
+    flushSync();
+    expect(eff1).toHaveBeenCalledTimes(2);
+    expect(eff2).toHaveBeenCalledTimes(2);
   });
 });

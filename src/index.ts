@@ -1,7 +1,6 @@
 let EFFECT_QUEUE: Array<Sig> = [],
   QUEUED = false,
   CURRENT: undefined | Sig,
-  queueFn: (() => void) | undefined,
   eq = (a1: any, a2: any) => a1 === a2;
 
 export interface NanoSignalOptions {
@@ -19,14 +18,20 @@ export class Sig<T = unknown> {
 
   eq: (a1: unknown, a2: unknown) => boolean = eq;
 
-  constructor(value: (() => T) | T, effect?: boolean) {
+  constructor(value: () => T, computation: true, effect?: boolean);
+  constructor(value?: T, computation?: false | undefined, effect?: boolean);
+  constructor(value: (() => T) | T, computation?: boolean, effect?: boolean) {
     // @ts-ignore
-    if (!!value?.call) {
+    if (computation) {
       this.#compute = value as () => T;
       if (effect) {
         this.#effect = effect;
-        EFFECT_QUEUE.push(this);
-        queueFn?.();
+        if (CURRENT && CURRENT.#effect) {
+          this.value;
+        } else {
+          EFFECT_QUEUE.push(this);
+          queueEffects();
+        }
       }
     } else {
       this.#cache = value;
@@ -63,12 +68,12 @@ export class Sig<T = unknown> {
   }
 
   #setStale() {
-    if (this.#effect) EFFECT_QUEUE.push(this);
+    if (this.#effect) EFFECT_QUEUE.push(this), queueEffects();
     else this.#observers.forEach((el) => !el.#stale && el.#setStale());
     this.#stale = true;
   }
 
-  get val(): T {
+  get value(): T {
     if (CURRENT) {
       if (!~this.#observers.indexOf(CURRENT)) this.#observers.push(CURRENT);
       if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
@@ -77,7 +82,7 @@ export class Sig<T = unknown> {
     return this.#cache as T;
   }
 
-  set val(newValue: T | null) {
+  set value(newValue: T | null) {
     if (this.#compute) {
       this.#execute(true);
       this.#effect = false;
@@ -86,21 +91,40 @@ export class Sig<T = unknown> {
     if (this.eq(this.#cache, newValue)) return;
     this.#cache = newValue as T;
     this.#setStale();
-    queueFn?.();
   }
 }
 
-export function autoTick(fn = queueTick) {
-  queueFn = fn;
-}
-
-export function tick() {
-  EFFECT_QUEUE.forEach((el) => el.val);
+export function flushSync() {
+  EFFECT_QUEUE.forEach((el) => el.value);
   EFFECT_QUEUE = [];
 }
 
-export function queueTick() {
+export function queueEffects() {
   if (QUEUED) return;
   QUEUED = true;
-  queueMicrotask(() => (tick(), (QUEUED = false)));
+  queueMicrotask(() => (flushSync(), (QUEUED = false)));
+}
+export function signal<T>(value: T, eq?: (a1: any, a2: any) => boolean): Sig<T>;
+export function signal<T = undefined>(): Sig<T | undefined>;
+export function signal<T>(
+  value?: T,
+  eq?: (a1: any, a2: any) => boolean
+): Sig<T> {
+  const data = new Sig<T>(value);
+  if (eq) data.eq = eq;
+  return data;
+}
+
+export function effect<T>(fn: () => T, eq?: (a1: any, a2: any) => boolean) {
+  const data = new Sig<T>(fn, true, true);
+  if (eq) data.eq = eq;
+  return () => {
+    data.value = null;
+  };
+}
+
+export function computed<T>(fn: () => T, eq?: (a1: any, a2: any) => boolean) {
+  const data = new Sig<T>(fn, true);
+  if (eq) data.eq = eq;
+  return data;
 }
