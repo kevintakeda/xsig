@@ -23,20 +23,20 @@ import { signal, computed, effect } from "xsig";
 // A "data source".
 const number = signal(1);
 
-// A "computed" that executes only when `double.val` is read.
-const double = computed(() => number.val * 2);
+// A "computed" that executes only when `double.value` is read.
+const double = computed(() => number.value * 2);
 
 // An "effect" that executes only if `double` changes.
 const dispose = effect(() => {
-  console.log("double is: " + double.val);
+  console.log("double is: " + double.value);
   return () => {
     /* clean up code if needed */
   };
 });
 
 // does nothing yet
-number.val = 0;
-number.val = 2;
+number.value = 0;
+number.value = 2;
 
 // To stop an effect later just set a value.
 setTimeout(() => {
