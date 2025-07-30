@@ -1,8 +1,8 @@
 
 
 # xsig
-![NPM Downloads](https://img.shields.io/npm/dm/xsig)
-![NPM License](https://img.shields.io/npm/l/xsig)
+[![version][version-badge]][version-url]
+[![license][license-badge]][license-url]
 
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
@@ -42,10 +42,14 @@ const dispose = effect(() => {
 number.value = 0;
 number.value = 2;
 
-// To stop an effect later just set a value.
+// To stop an effect later just call it.
 setTimeout(() => {
   dispose();
 }, 5000);
 
 // At end it logs "double is: 4".
 ```
+[version-badge]: https://badgen.net/npm/v/xsig
+[version-url]: https://npmjs.com/package/xsig
+[license-badge]: https://badgen.net/github/license/kevintakeda/xsig
+[license-url]: https://github.com/kevintakeda/xsig/blob/main/LICENSE
