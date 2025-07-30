@@ -1,4 +1,8 @@
+
+
 # xsig
+![NPM Downloads](https://img.shields.io/npm/dm/xsig)
+![NPM License](https://img.shields.io/npm/l/xsig)
 
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
