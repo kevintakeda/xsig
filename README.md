@@ -1,17 +1,16 @@
-
-
 # xsig
+
 [![version][version-badge]][version-url]
 [![license][license-badge]][license-url]
 
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **469 bytes** (minified and brotlied)
+- Only **475 bytes** (minified and brotlied)
 - Fine grained updates (updates only when necessary)
 - Computations are lazy by default
 - Auto depedency tracking
-- Easy and predictable
+- Glitch-free
 
 ## Install
 
@@ -42,13 +41,14 @@ const dispose = effect(() => {
 number.value = 0;
 number.value = 2;
 
-// To stop an effect later just call it.
+// To stop an effect later just set a value.
 setTimeout(() => {
   dispose();
 }, 5000);
 
 // At end it logs "double is: 4".
 ```
+
 [version-badge]: https://badgen.net/npm/v/xsig
 [version-url]: https://npmjs.com/package/xsig
 [license-badge]: https://badgen.net/github/license/kevintakeda/xsig

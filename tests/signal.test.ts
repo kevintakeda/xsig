@@ -388,4 +388,25 @@ describe("effects", () => {
     expect(eff1).toHaveBeenCalledTimes(2);
     expect(eff2).toHaveBeenCalledTimes(2);
   });
+
+  test("drains effects enqueued during flushSync", () => {
+    const a = signal(0);
+    const b = signal(0);
+    const spyB = vi.fn(() => {
+      b.value;
+    });
+
+    effect(spyB);
+    flushSync();
+    expect(spyB).toHaveBeenCalledTimes(1);
+
+    effect(() => {
+      a.value;
+      b.value = b.value + 1;
+    });
+
+    flushSync();
+
+    expect(spyB).toHaveBeenCalledTimes(2);
+  });
 });

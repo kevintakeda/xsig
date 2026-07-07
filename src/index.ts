@@ -26,12 +26,8 @@ export class Sig<T = unknown> {
       this.#compute = value as () => T;
       if (effect) {
         this.#effect = effect;
-        if (CURRENT && CURRENT.#effect) {
-          this.value;
-        } else {
-          EFFECT_QUEUE.push(this);
-          queueEffects();
-        }
+        EFFECT_QUEUE.push(this);
+        queueEffects();
       }
     } else {
       this.#cache = value;
@@ -68,7 +64,7 @@ export class Sig<T = unknown> {
   }
 
   #setStale() {
-    if (this.#effect) EFFECT_QUEUE.push(this), queueEffects();
+    if (this.#effect) (EFFECT_QUEUE.push(this), queueEffects());
     else this.#observers.forEach((el) => !el.#stale && el.#setStale());
     this.#stale = true;
   }
@@ -95,8 +91,11 @@ export class Sig<T = unknown> {
 }
 
 export function flushSync() {
-  EFFECT_QUEUE.forEach((el) => el.value);
-  EFFECT_QUEUE = [];
+  while (EFFECT_QUEUE.length) {
+    const batch = EFFECT_QUEUE;
+    EFFECT_QUEUE = [];
+    for (const effect of batch) effect.value;
+  }
 }
 
 export function queueEffects() {
@@ -108,7 +107,7 @@ export function signal<T>(value: T, eq?: (a1: any, a2: any) => boolean): Sig<T>;
 export function signal<T = undefined>(): Sig<T | undefined>;
 export function signal<T>(
   value?: T,
-  eq?: (a1: any, a2: any) => boolean
+  eq?: (a1: any, a2: any) => boolean,
 ): Sig<T> {
   const data = new Sig<T>(value);
   if (eq) data.eq = eq;
