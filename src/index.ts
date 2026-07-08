@@ -1,48 +1,51 @@
 let EFFECT_QUEUE: Array<Sig> = [],
   QUEUED = false,
-  CURRENT: undefined | Sig,
-  eq = (a1: any, a2: any) => a1 === a2;
+  CURRENT: undefined | Sig;
 
-export interface NanoSignalOptions {
-  effect?: boolean;
-  eq?: (a: unknown, b: unknown) => boolean;
-}
-
+export type EffectType = 0 | 1 | 2;
 export class Sig<T = unknown> {
-  #effect: boolean | undefined;
+  #effect: EffectType = 0;
   #compute: (() => T) | undefined | null;
   #cache: T | undefined | (() => void);
   #sources: Array<Sig> = [];
   #observers: Array<Sig> = [];
   #stale = true;
 
-  eq: (a1: unknown, a2: unknown) => boolean = eq;
+  eq: (a1: unknown, a2: unknown) => boolean = (a1: any, a2: any) => a1 === a2;
 
-  constructor(value: () => T, computation: true, effect?: boolean);
-  constructor(value?: T, computation?: false | undefined, effect?: boolean);
-  constructor(value: (() => T) | T, computation?: boolean, effect?: boolean) {
+  constructor(value: () => T, computation: true, effect?: EffectType);
+  constructor(value?: T, computation?: false | undefined, effect?: EffectType);
+  constructor(
+    value: (() => T) | T,
+    computation?: boolean,
+    effect?: EffectType,
+  ) {
     // @ts-ignore
     if (computation) {
       this.#compute = value as () => T;
       if (effect) {
         this.#effect = effect;
-        EFFECT_QUEUE.push(this);
-        queueEffects();
+        effect < 2
+          ? (EFFECT_QUEUE.push(this), queueEffects())
+          : this.#execute();
       }
     } else {
       this.#cache = value;
+      this.#stale = false;
     }
   }
 
   // it updates itself (if necessary) and returns if the updated value is the same as before
   #updateIfNecessary(): boolean {
-    return (
-      !!this.#compute &&
-      this.#stale &&
-      (!this.#sources.length ||
-        this.#sources.some((el) => !el.#updateIfNecessary())) &&
-      this.eq(this.#cache, this.#execute())
-    );
+    if (!this.#compute || !this.#stale) return false;
+    if (
+      !this.#sources.length ||
+      this.#sources.some((el) => !el.#updateIfNecessary())
+    ) {
+      return this.eq(this.#cache, this.#execute());
+    }
+    this.#stale = false;
+    return false;
   }
 
   /** @internal executes the function and track dependencies */
@@ -64,9 +67,14 @@ export class Sig<T = unknown> {
   }
 
   #setStale() {
-    if (this.#effect) (EFFECT_QUEUE.push(this), queueEffects());
-    else this.#observers.forEach((el) => !el.#stale && el.#setStale());
+    if (this.#stale) return;
     this.#stale = true;
+    if (this.#effect > 1) this.#execute();
+    else if (this.#effect) (EFFECT_QUEUE.push(this), queueEffects());
+    else {
+      this.#observers.forEach((el) => !el.#stale && el.#setStale());
+      if (!this.#compute) this.#stale = false;
+    }
   }
 
   get value(): T {
@@ -81,7 +89,7 @@ export class Sig<T = unknown> {
   set value(newValue: T | null) {
     if (this.#compute) {
       this.#execute(true);
-      this.#effect = false;
+      this.#effect = 0;
       this.#compute = null;
     }
     if (this.eq(this.#cache, newValue)) return;
@@ -98,7 +106,7 @@ export function flushSync() {
   }
 }
 
-export function queueEffects() {
+function queueEffects() {
   if (QUEUED) return;
   QUEUED = true;
   queueMicrotask(() => (flushSync(), (QUEUED = false)));
@@ -114,12 +122,9 @@ export function signal<T>(
   return data;
 }
 
-export function effect<T>(fn: () => T, eq?: (a1: any, a2: any) => boolean) {
-  const data = new Sig<T>(fn, true, true);
-  if (eq) data.eq = eq;
-  return () => {
-    data.value = null;
-  };
+export function effect<T>(fn: () => T, sync?: boolean) {
+  const data = new Sig<T>(fn, true, sync ? 2 : 1);
+  return () => (data.value = null);
 }
 
 export function computed<T>(fn: () => T, eq?: (a1: any, a2: any) => boolean) {

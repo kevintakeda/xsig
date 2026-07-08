@@ -1,4 +1,4 @@
-import { expect, test, vi, describe } from "vitest";
+import { expect, test, vi, describe, it } from "vitest";
 import { signal, effect, computed, flushSync } from "../src";
 
 describe("state", () => {
@@ -137,7 +137,7 @@ describe("graph", () => {
     const spyC = vi.fn(() => a.value + b.value + a.value + b.value);
     const c = computed(spyC);
     const spyD = vi.fn(
-      () => a.value + b.value + c.value + a.value + b.value + c.value
+      () => a.value + b.value + c.value + a.value + b.value + c.value,
     );
     const d = computed(spyD);
     expect(d.value).toBe(18);
@@ -408,5 +408,117 @@ describe("effects", () => {
     flushSync();
 
     expect(spyB).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("sync effects", () => {
+  test("sync effect runs immediately on dependency change", () => {
+    const a = signal(1);
+    const b = signal(2);
+    const spy = vi.fn(() => a.value + b.value);
+    effect(spy, true);
+    // already ran once (immediate)
+    a.value = 10;
+    expect(spy).toHaveBeenCalledTimes(2);
+    b.value = 20;
+    expect(spy).toHaveBeenCalledTimes(3);
+  });
+
+  test("dispose sync effect", () => {
+    const a = signal("a");
+    const spy = vi.fn(() => a.value);
+    const dispose = effect(spy, true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    a.value = "a!";
+    expect(spy).toHaveBeenCalledTimes(2);
+    dispose();
+    a.value = "a!!";
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  test("sync effect with cleanup", () => {
+    const spy = vi.fn();
+    const x = signal(1);
+    effect(() => {
+      x.value;
+      return () => spy();
+    }, true);
+    expect(spy).toHaveBeenCalledTimes(0);
+    x.value++;
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test("sync effect runs once", () => {
+    const spy = vi.fn();
+    const a = signal(1);
+    const b = signal(1);
+    const c = signal(1);
+    effect(() => {
+      effect(() => [a.value, b.value, c.value]);
+      spy();
+    }, true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    a.value++;
+    b.value++;
+    c.value++;
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("avoid propagation", () => {
+  it("should not propagate unnecessarily", () => {
+    const a = signal("a");
+    const b = computed(() => {
+      a.value;
+      return "a";
+    });
+    const spyC = vi.fn(() => b.value);
+    const c = computed(spyC);
+
+    let result = "";
+    effect(() => {
+      result = c.value;
+    });
+    flushSync();
+    spyC.mockClear();
+
+    a.value = "b";
+    flushSync();
+    expect(spyC).toHaveBeenCalledTimes(0);
+
+    a.value = "c";
+    flushSync();
+    expect(result).toBe("a");
+    expect(spyC).toHaveBeenCalledTimes(0);
+  });
+
+  it("should not keep downstream permanently stale when upstream returns same value", () => {
+    const a = signal("a");
+    const b = computed(() => {
+      a.value;
+      return "constant";
+    });
+    const spyC = vi.fn(() => b.value);
+    const c = computed(spyC);
+
+    let result = "";
+    effect(() => {
+      result = c.value;
+    });
+    flushSync();
+    expect(result).toBe("constant");
+    expect(spyC).toHaveBeenCalledTimes(1);
+    spyC.mockClear();
+
+    a.value = "b";
+
+    // first flush — C detects B unchanged, should clear stale internally
+    flushSync();
+    expect(result).toBe("constant");
+    expect(spyC).toHaveBeenCalledTimes(0); // C did not re-execute
+
+    // second flush — stale flag was cleared, no source re-check
+    flushSync();
+    expect(spyC).toHaveBeenCalledTimes(0); // still should not re-execute
   });
 });

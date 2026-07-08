@@ -29,7 +29,7 @@
   "size-limit": [
     {
       "path": "src/index.ts",
-      "limit": "499 B"
+      "limit": "550 B"
     }
   ],
   "devDependencies": {

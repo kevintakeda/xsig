@@ -6,11 +6,12 @@
 A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
 
 - Signals-based observers
-- Only **475 bytes** (minified and brotlied)
+- Only **0.5kb** (minified and brotlied)
 - Fine grained updates (updates only when necessary)
-- Computations are lazy by default
-- Auto depedency tracking
+- Lazy-first computeds
+- Auto dependency tracking via transparent reactivity
 - Glitch-free
+- Hybrid sync/scheduled effects
 
 ## Install
 
@@ -41,7 +42,7 @@ const dispose = effect(() => {
 number.value = 0;
 number.value = 2;
 
-// To stop an effect later just set a value.
+// To stop an effect later just call it
 setTimeout(() => {
   dispose();
 }, 5000);
