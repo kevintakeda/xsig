@@ -463,6 +463,196 @@ describe("sync effects", () => {
     c.value++;
     expect(spy).toHaveBeenCalledTimes(1);
   });
+
+  test("sync effect runs once with constant computed", () => {
+    const a = signal("a");
+    const b = computed(() => {
+      a.value;
+      return "a";
+    });
+    const spy = vi.fn(() => b.value);
+
+    let result = "";
+    effect(() => {
+      result = spy();
+    }, true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockClear();
+
+    a.value = "b";
+    expect(spy).toHaveBeenCalledTimes(0);
+    expect(result).toBe("a");
+
+    a.value = "c";
+    expect(spy).toHaveBeenCalledTimes(0);
+    expect(result).toBe("a");
+  });
+});
+
+describe("peek", () => {
+  test("peek inside effect does not track value signal", () => {
+    const a = signal(1);
+    let result: number | undefined;
+    effect(() => {
+      result = a.peek;
+    });
+    flushSync();
+    expect(result).toBe(1);
+
+    a.value = 2;
+    flushSync();
+    expect(result).toBe(1);
+  });
+
+  test("peek inside effect does not track computed", () => {
+    const a = signal(1);
+    const b = computed(() => a.value);
+    let result: number | undefined;
+    effect(() => {
+      result = b.peek;
+    });
+    flushSync();
+    expect(result).toBe(1);
+
+    a.value = 2;
+    flushSync();
+    expect(result).toBe(1);
+  });
+
+  test(".value tracking survives peek", () => {
+    const a = signal(1);
+    let result: number | undefined;
+    effect(() => {
+      result = a.value;
+    });
+    flushSync();
+    expect(result).toBe(1);
+
+    // peek doesn't break existing tracking
+    a.peek;
+    a.value = 2;
+    flushSync();
+    expect(result).toBe(2);
+  });
+
+  test("computed with peek inside does not track peeked signal", () => {
+    const a = signal(1);
+    const b = signal(10);
+    const c = computed(() => a.value + b.peek);
+
+    let result: number | undefined;
+    effect(() => {
+      result = c.value;
+    });
+    flushSync();
+    expect(result).toBe(11);
+
+    a.value = 2;
+    flushSync();
+    expect(result).toBe(12);
+
+    // b was peek'd — not tracked
+    b.value = 20;
+    flushSync();
+    expect(result).toBe(12);
+  });
+
+  test("computed with peek as dependency does not track upstream", () => {
+    const a = signal(1);
+    const b = computed(() => a.value);
+    const c = computed(() => b.peek);
+
+    let result: number | undefined;
+    effect(() => {
+      result = c.value;
+    });
+    flushSync();
+    expect(result).toBe(1);
+
+    a.value = 2;
+    flushSync();
+    // c used b.peek, so no chain: c→b→a never formed
+    expect(result).toBe(1);
+  });
+
+  test("peek returns fresh value when upstream tracking exists", () => {
+    const a = signal(1);
+    const b = computed(() => a.value);
+
+    b.value;
+    a.value = 2;
+
+    expect(b.peek).toBe(2);
+  });
+
+  test("peek does not clear stale — subsequent .value re-evaluates properly", () => {
+    const a = signal(1);
+    const b = computed(() => a.value);
+
+    b.value;
+    a.value = 2;
+
+    expect(b.peek).toBe(2);
+    expect(b.value).toBe(2);
+  });
+
+  test("re-evaluates on each peek while stale", () => {
+    const a = signal(1);
+    const spy = vi.fn(() => a.value);
+    const b = computed(spy);
+
+    b.value;
+    spy.mockClear();
+
+    a.value = 2;
+    b.peek;
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    a.value = 3;
+    b.peek;
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  test("runs once", () => {
+    const a = signal(1);
+    const spy = vi.fn(() => a.value);
+    const b = computed(spy);
+
+    b.value;
+    spy.mockClear();
+
+    a.value = 2;
+    b.peek;
+    b.peek;
+    b.peek;
+    flushSync();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test("peek on value signal returns current value", () => {
+    const a = signal(1);
+    expect(a.peek).toBe(1);
+    a.value = 2;
+    expect(a.peek).toBe(2);
+  });
+
+  test("parent computed with peek does not forward reactivity", () => {
+    const a = signal(1);
+    const b = computed(() => a.value);
+    const parent = computed(() => b.peek);
+
+    let result: number | undefined;
+    effect(() => {
+      result = parent.value;
+    });
+    flushSync();
+    expect(result).toBe(1);
+
+    a.value = 2;
+    flushSync();
+    // parent used b.peek — no dependency on a
+    expect(result).toBe(1);
+  });
 });
 
 describe("avoid propagation", () => {

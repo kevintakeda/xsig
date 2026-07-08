@@ -1,6 +1,8 @@
 let EFFECT_QUEUE: Array<Sig> = [],
-  QUEUED = false,
-  CURRENT: undefined | Sig;
+  SYNC_EFFECTS: Array<Sig> = [],
+  QUEUED = 0,
+  CURRENT: undefined | Sig,
+  UNTRACK = 0;
 
 export type EffectType = 0 | 1 | 2;
 export class Sig<T = unknown> {
@@ -35,7 +37,7 @@ export class Sig<T = unknown> {
     }
   }
 
-  // it updates itself (if necessary) and returns if the updated value is the same as before
+  // pulls stale graph; true = re-eval'd + same
   #updateIfNecessary(): boolean {
     if (!this.#compute || !this.#stale) return false;
     if (
@@ -51,17 +53,16 @@ export class Sig<T = unknown> {
   /** @internal executes the function and track dependencies */
   #execute(disconnect = false) {
     // @ts-ignore
-    if (!!this.#cache?.call) (this.#cache as () => void)();
+    if (this.#cache?.call) this.#cache();
     const prev = CURRENT,
       prevSources = this.#sources;
     this.#sources = [];
     CURRENT = this;
     if (!disconnect) this.#cache = this.#compute?.();
     this.#stale = false;
-    prevSources.forEach((prev, i) => {
-      if (this.#sources[i] !== prev && !~this.#sources.indexOf(prev))
-        prev.#observers.splice(prev.#observers.indexOf(this), 1);
-    });
+    for (const source of prevSources)
+      if (!this.#sources.includes(source))
+        source.#observers.splice(source.#observers.indexOf(this), 1);
     CURRENT = prev;
     return this.#cache;
   }
@@ -69,20 +70,29 @@ export class Sig<T = unknown> {
   #setStale() {
     if (this.#stale) return;
     this.#stale = true;
-    if (this.#effect > 1) this.#execute();
+    if (this.#effect > 1) SYNC_EFFECTS.push(this);
     else if (this.#effect) (EFFECT_QUEUE.push(this), queueEffects());
     else {
-      this.#observers.forEach((el) => !el.#stale && el.#setStale());
+      this.#observers.forEach((el) => el.#stale || el.#setStale());
       if (!this.#compute) this.#stale = false;
     }
   }
 
   get value(): T {
     if (CURRENT) {
-      if (!~this.#observers.indexOf(CURRENT)) this.#observers.push(CURRENT);
+      if (!UNTRACK && !~this.#observers.indexOf(CURRENT))
+        this.#observers.push(CURRENT);
       if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
     }
     this.#updateIfNecessary();
+    return this.#cache as T;
+  }
+
+  get peek(): T {
+    const prev = UNTRACK;
+    UNTRACK = 1;
+    this.value;
+    UNTRACK = prev;
     return this.#cache as T;
   }
 
@@ -95,10 +105,20 @@ export class Sig<T = unknown> {
     if (this.eq(this.#cache, newValue)) return;
     this.#cache = newValue as T;
     this.#setStale();
+    flushSyncEffects();
+  }
+}
+
+function flushSyncEffects() {
+  while (SYNC_EFFECTS.length) {
+    const batch = SYNC_EFFECTS;
+    SYNC_EFFECTS = [];
+    for (const effect of batch) effect.value;
   }
 }
 
 export function flushSync() {
+  flushSyncEffects();
   while (EFFECT_QUEUE.length) {
     const batch = EFFECT_QUEUE;
     EFFECT_QUEUE = [];
@@ -108,8 +128,8 @@ export function flushSync() {
 
 function queueEffects() {
   if (QUEUED) return;
-  QUEUED = true;
-  queueMicrotask(() => (flushSync(), (QUEUED = false)));
+  QUEUED = 1;
+  queueMicrotask(() => (flushSync(), (QUEUED = 0)));
 }
 export function signal<T>(value: T, eq?: (a1: any, a2: any) => boolean): Sig<T>;
 export function signal<T = undefined>(): Sig<T | undefined>;
