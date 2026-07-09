@@ -28,8 +28,8 @@
   },
   "size-limit": [
     {
-      "path": "src/index.ts",
-      "limit": "550 B"
+      "path": "dist/index.js",
+      "limit": "599 B"
     }
   ],
   "devDependencies": {

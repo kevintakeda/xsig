@@ -12,6 +12,7 @@ A very tiny reactive library, highly inspired by [Reactively](https://github.com
 - Auto dependency tracking via transparent reactivity
 - Glitch-free
 - Hybrid sync/scheduled effects
+- Scoped effects (dispose nested computations)
 
 ## Install
 

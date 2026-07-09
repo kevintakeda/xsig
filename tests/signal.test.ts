@@ -487,6 +487,27 @@ describe("sync effects", () => {
     expect(spy).toHaveBeenCalledTimes(0);
     expect(result).toBe("a");
   });
+
+  test("sync effects prevents duplicate execution", () => {
+    const a = signal(1);
+    const b = signal(0);
+    let calls = 0;
+
+    effect(() => {
+      b.value = a.value * 2;
+    }, true);
+
+    effect(() => {
+      calls++;
+      a.value;
+      b.value;
+    }, true);
+
+    expect(calls).toBe(1);
+    a.value = 5;
+    expect(calls).toBe(2);
+    expect(b.value).toBe(10);
+  });
 });
 
 describe("peek", () => {
