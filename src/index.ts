@@ -1,18 +1,19 @@
 let EFFECT_QUEUE: Array<Sig> = [],
   SYNC_EFFECTS: Array<Sig> = [],
-  QUEUED = 0,
   CURRENT: undefined | Sig,
+  QUEUED = 0,
   UNTRACK = 0,
   SCOPE: undefined | Array<Sig>;
 
 export type EffectType = 0 | 1 | 2;
 export class Sig<T = unknown> {
+  #stale = true;
   #effect: EffectType = 0;
-  #compute: (() => T) | undefined | null;
-  #cache: T | undefined | (() => void);
   #sources: Array<Sig> = [];
   #observers: Array<Sig> = [];
-  #stale = true;
+  #compute: (() => T) | undefined | null;
+  #cache: T | undefined | (() => void);
+
   #scope?: Array<Sig>;
 
   eq: (a1: unknown, a2: unknown) => boolean = (a1: any, a2: any) => a1 === a2;
@@ -67,7 +68,7 @@ export class Sig<T = unknown> {
   /** @internal executes the function and track dependencies */
   #execute(disconnect = false) {
     // @ts-ignore
-    if (this.#cache?.call) this.#cache();
+    if (this.#cache?.call && this.#effect) this.#cache();
     const prev = CURRENT,
       prevSources = this.#sources;
     this.#sources = [];
@@ -102,21 +103,21 @@ export class Sig<T = unknown> {
     }
   }
 
-  get value(): T {
-    if (CURRENT) {
-      if (!UNTRACK && !~this.#observers.indexOf(CURRENT))
-        this.#observers.push(CURRENT);
-      if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
-    }
-    this.#updateIfNecessary();
-    return this.#cache as T;
-  }
-
   get peek(): T {
     const prev = UNTRACK;
     UNTRACK = 1;
     this.value;
     UNTRACK = prev;
+    return this.#cache as T;
+  }
+
+  get value(): T {
+    if (CURRENT) {
+      if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
+      if (!UNTRACK && !~this.#observers.indexOf(CURRENT))
+        this.#observers.push(CURRENT);
+    }
+    this.#updateIfNecessary();
     return this.#cache as T;
   }
 
@@ -156,24 +157,19 @@ export function flushSync() {
     for (const s of batch) s.value;
   }
 }
-export function signal<T>(value: T, eq?: (a1: any, a2: any) => boolean): Sig<T>;
+export function signal<T>(value: T): Sig<T>;
 export function signal<T = undefined>(): Sig<T | undefined>;
-export function signal<T>(
-  value?: T,
-  eq?: (a1: any, a2: any) => boolean,
-): Sig<T> {
+export function signal<T>(value?: T): Sig<T> {
   const data = new Sig<T>(value);
-  if (eq) data.eq = eq;
+  return data;
+}
+
+export function computed<T>(fn: () => T) {
+  const data = new Sig<T>(fn, true);
   return data;
 }
 
 export function effect<T>(fn: () => T, sync?: boolean, scope?: Array<Sig>) {
   const data = new Sig<T>(fn, true, sync ? 2 : 1, scope);
   return () => (data.value = null);
-}
-
-export function computed<T>(fn: () => T, eq?: (a1: any, a2: any) => boolean) {
-  const data = new Sig<T>(fn, true);
-  if (eq) data.eq = eq;
-  return data;
 }
