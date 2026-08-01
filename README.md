@@ -3,10 +3,10 @@
 [![version][version-badge]][version-url]
 [![license][license-badge]][license-url]
 
-A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively).
+A very tiny reactive library, highly inspired by [Reactively](https://github.com/milomg/reactively) and [alien-signals](https://github.com/stackblitz/alien-signals).
 
 - Signals-based observers
-- Only **0.5kb** (minified and brotlied)
+- Only **0.7kb** (minified and brotlied)
 - Fine grained updates (updates only when necessary)
 - Lazy-first computeds
 - Auto dependency tracking via transparent reactivity

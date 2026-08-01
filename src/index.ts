@@ -6,14 +6,26 @@ let EFFECT_QUEUE: Array<Sig> = [],
   SCOPE: undefined | Array<Sig>;
 
 export type EffectType = 0 | 1 | 2;
+
+type Edge = {
+  s: Sig; // source
+  o: Sig; // observer
+  ns?: Edge | null; // next in source's observer chain
+  ps?: Edge | null; // prev in source's observer chain
+  nd?: Edge | null; // next in observer's dependency chain
+  pd?: Edge | null; // prev in observer's dependency chain
+  k: boolean;
+};
+
 export class Sig<T = unknown> {
-  #stale = true;
-  #effect: EffectType = 0;
-  #sources: Array<Sig> = [];
-  #observers: Array<Sig> = [];
+  #effect?: EffectType;
   #compute: (() => T) | undefined | null;
   #cache: T | undefined | (() => void);
-
+  #depHead?: Edge | null;
+  #depTail?: Edge | null;
+  #obsHead?: Edge | null;
+  #obsTail?: Edge | null;
+  #stale = true;
   #scope?: Array<Sig>;
 
   eq: (a1: unknown, a2: unknown) => boolean = (a1: any, a2: any) => a1 === a2;
@@ -52,14 +64,36 @@ export class Sig<T = unknown> {
     }
   }
 
+  #unlink(e: Edge) {
+    const s = e.s,
+      o = e.o;
+    if (e.ps) e.ps.ns = e.ns;
+    else s.#obsHead = e.ns;
+    if (e.ns) e.ns.ps = e.ps;
+    else s.#obsTail = e.ps;
+    if (e.pd) e.pd.nd = e.nd;
+    else o.#depHead = e.nd;
+    if (e.nd) e.nd.pd = e.pd;
+    else o.#depTail = e.pd;
+    if (!s.#obsHead && s.#compute && !s.#effect) {
+      s.#stale = true;
+      let e2 = s.#depHead;
+      while (e2) {
+        const n = e2.nd;
+        s.#unlink(e2);
+        e2 = n;
+      }
+    }
+  }
+
   // pulls stale graph; true = re-eval'd + same
   #updateIfNecessary(): boolean {
     if (!this.#compute || !this.#stale) return false;
-    if (
-      !this.#sources.length ||
-      this.#sources.some((el) => !el.#updateIfNecessary())
-    ) {
-      return this.eq(this.#cache, this.#execute());
+    if (!this.#depHead) return this.eq(this.#cache, this.#execute());
+    let e: Edge | null | undefined = this.#depHead;
+    while (e) {
+      if (!e.s.#updateIfNecessary()) return this.eq(this.#cache, this.#execute());
+      e = e.nd;
     }
     this.#stale = false;
     return false;
@@ -69,9 +103,12 @@ export class Sig<T = unknown> {
   #execute(disconnect = false) {
     // @ts-ignore
     if (this.#cache?.call && this.#effect) this.#cache();
-    const prev = CURRENT,
-      prevSources = this.#sources;
-    this.#sources = [];
+    const prev = CURRENT;
+    let e = this.#depHead;
+    while (e) {
+      e.k = false;
+      e = e.nd;
+    }
     CURRENT = this;
     if (!disconnect) {
       const prevScope = SCOPE;
@@ -80,10 +117,13 @@ export class Sig<T = unknown> {
       SCOPE = prevScope;
     }
 
+    e = this.#depHead;
+    while (e) {
+      const n = e.nd;
+      if (!e.k) this.#unlink(e);
+      e = n;
+    }
     this.#stale = false;
-    for (const source of prevSources)
-      if (!this.#sources.includes(source))
-        source.#observers.splice(source.#observers.indexOf(this), 1);
     CURRENT = prev;
     return this.#cache;
   }
@@ -95,29 +135,51 @@ export class Sig<T = unknown> {
   #setStale() {
     if (this.#stale) return;
     this.#stale = true;
-    if (this.#effect > 1) SYNC_EFFECTS.push(this);
+    if (this.#effect === 2) SYNC_EFFECTS.push(this);
     else if (this.#effect) (EFFECT_QUEUE.push(this), queueEffects());
     else {
-      this.#observers.forEach((el) => el.#stale || el.#setStale());
+      let e = this.#obsHead;
+      while (e) {
+        e.o.#setStale();
+        e = e.ns;
+      }
       if (!this.#compute) this.#stale = false;
     }
   }
 
-  get peek(): T {
-    const prev = UNTRACK;
-    UNTRACK = 1;
-    this.value;
-    UNTRACK = prev;
+  get value(): T {
+    const c = CURRENT;
+    if (c) {
+      let e: Edge | null | undefined = c.#depHead;
+      while (e) {
+        if (e.s === this) break;
+        e = e.nd;
+      }
+      if (e) e.k = true;
+      else if (!UNTRACK) {
+        e = {
+          s: this,
+          o: c,
+          ps: this.#obsTail,
+          pd: c.#depTail,
+          k: true,
+        };
+        if (this.#obsTail) this.#obsTail.ns = e;
+        else this.#obsHead = e;
+        this.#obsTail = e;
+        if (c.#depTail) c.#depTail.nd = e;
+        else c.#depHead = e;
+        c.#depTail = e;
+      }
+    }
+    this.#updateIfNecessary();
     return this.#cache as T;
   }
 
-  get value(): T {
-    if (CURRENT) {
-      if (!~CURRENT.#sources.indexOf(this)) CURRENT.#sources.push(this);
-      if (!UNTRACK && !~this.#observers.indexOf(CURRENT))
-        this.#observers.push(CURRENT);
-    }
-    this.#updateIfNecessary();
+  get peek(): T {
+    UNTRACK++;
+    this.value;
+    UNTRACK--;
     return this.#cache as T;
   }
 

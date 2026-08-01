@@ -56,7 +56,7 @@ export const SigApi: SignalApi = {
       get: () => S.value,
     };
   },
-  effect: (fn) => effect(fn),
+  effect: (fn) => effect(fn, true),
   runSync: (fn) => {
     fn();
     flushSync();

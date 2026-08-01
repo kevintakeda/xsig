@@ -1,16 +1,16 @@
-import { resolve } from 'path'
-import { defineConfig } from 'vite';
-import dts from 'vite-plugin-dts'
+import { resolve } from "path";
+import { defineConfig } from "vite";
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, './src/index.ts'),
-      name: 'sigx',
+      entry: resolve(__dirname, "./src/index.ts"),
+      name: "xsig",
       fileName: "index",
     },
-    formats: ['es'],
-    target: "esnext"
+    formats: ["es"],
+    target: "esnext",
   },
-  plugins: [dts()]
+  plugins: [dts()],
 });
