@@ -17,18 +17,19 @@ type Edge = {
   k: boolean;
 };
 
+const E = (a1: unknown, a2: unknown) => a1 === a2;
+
 export class Sig<T = unknown> {
   #effect?: EffectType;
   #compute: (() => T) | undefined | null;
   #cache: T | undefined | (() => void);
   #depHead?: Edge | null;
-  #depTail?: Edge | null;
   #obsHead?: Edge | null;
   #obsTail?: Edge | null;
   #stale = true;
   #scope?: Array<Sig>;
 
-  eq: (a1: unknown, a2: unknown) => boolean = (a1: any, a2: any) => a1 === a2;
+  eq: (a1: unknown, a2: unknown) => boolean = E;
 
   constructor(
     value: () => T,
@@ -74,7 +75,6 @@ export class Sig<T = unknown> {
     if (e.pd) e.pd.nd = e.nd;
     else o.#depHead = e.nd;
     if (e.nd) e.nd.pd = e.pd;
-    else o.#depTail = e.pd;
     if (!s.#obsHead && s.#compute && !s.#effect) {
       s.#stale = true;
       let e2 = s.#depHead;
@@ -92,7 +92,8 @@ export class Sig<T = unknown> {
     if (!this.#depHead) return this.eq(this.#cache, this.#execute());
     let e: Edge | null | undefined = this.#depHead;
     while (e) {
-      if (!e.s.#updateIfNecessary()) return this.eq(this.#cache, this.#execute());
+      if (!e.s.#updateIfNecessary())
+        return this.eq(this.#cache, this.#execute());
       e = e.nd;
     }
     this.#stale = false;
@@ -161,15 +162,14 @@ export class Sig<T = unknown> {
           s: this,
           o: c,
           ps: this.#obsTail,
-          pd: c.#depTail,
+          nd: c.#depHead,
           k: true,
         };
         if (this.#obsTail) this.#obsTail.ns = e;
         else this.#obsHead = e;
         this.#obsTail = e;
-        if (c.#depTail) c.#depTail.nd = e;
-        else c.#depHead = e;
-        c.#depTail = e;
+        if (c.#depHead) c.#depHead.pd = e;
+        c.#depHead = e;
       }
     }
     this.#updateIfNecessary();
