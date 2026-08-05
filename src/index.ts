@@ -129,10 +129,6 @@ export class Sig<T = unknown> {
     return this.#cache;
   }
 
-  #dispose() {
-    if (this.#scope?.length) for (const s of this.#scope) s.value = null;
-  }
-
   #setStale() {
     if (this.#stale) return;
     this.#stale = true;
@@ -188,7 +184,7 @@ export class Sig<T = unknown> {
       this.#execute(true);
       this.#effect = 0;
       this.#compute = null;
-      this.#dispose();
+      if (this.#scope?.length) for (const s of this.#scope) s.value = null;
     }
     if (this.eq(this.#cache, newValue)) return;
     this.#cache = newValue as T;
@@ -198,17 +194,26 @@ export class Sig<T = unknown> {
 }
 
 function flushSyncEffects() {
-  while (SYNC_EFFECTS.length) {
-    const batch = SYNC_EFFECTS;
-    SYNC_EFFECTS = [];
-    for (const s of batch) s.value;
-  }
+  untrack(() => {
+    while (SYNC_EFFECTS.length) {
+      const batch = SYNC_EFFECTS;
+      SYNC_EFFECTS = [];
+      for (const s of batch) s.value;
+    }
+  });
 }
 
 function queueEffects() {
   if (QUEUED) return;
   QUEUED = 1;
   queueMicrotask(() => (flushSync(), (QUEUED = 0)));
+}
+
+export function untrack<T>(fn: () => T): T {
+  UNTRACK++;
+  const r = fn();
+  UNTRACK--;
+  return r;
 }
 
 export function flushSync() {
@@ -222,13 +227,11 @@ export function flushSync() {
 export function signal<T>(value: T): Sig<T>;
 export function signal<T = undefined>(): Sig<T | undefined>;
 export function signal<T>(value?: T): Sig<T> {
-  const data = new Sig<T>(value);
-  return data;
+  return new Sig<T>(value);
 }
 
 export function computed<T>(fn: () => T) {
-  const data = new Sig<T>(fn, true);
-  return data;
+  return new Sig<T>(fn, true);
 }
 
 export function effect<T>(fn: () => T, sync?: boolean, scope?: Array<Sig>) {
