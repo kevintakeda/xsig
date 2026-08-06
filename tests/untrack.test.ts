@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { signal, computed, effect, untrack } from "../src";
+import { signal, computed, effect, untrack, flushSync } from "../src";
 
 describe("untrack", () => {
   it("returns the fn result and sees fresh values", () => {
@@ -71,5 +71,39 @@ describe("untrack", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     a.value = 2;
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("an effect created inside still tracks its own reads", () => {
+    const a = signal(1);
+    const spy = vi.fn(() => a.value);
+    let stop: (() => void) | undefined;
+    effect(() => {
+      untrack(() => {
+        stop = effect(spy, true);
+      });
+    }, true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    a.value = 2;
+    expect(spy).toHaveBeenCalledTimes(2);
+    stop?.();
+    a.value = 3;
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("an effect created inside does not become a dependency of the outer", () => {
+    const a = signal(1);
+    const b = signal(1);
+    const outer = vi.fn(() => {
+      untrack(() => {
+        effect(() => a.value, true);
+      });
+      return b.value;
+    });
+    effect(outer, true);
+    expect(outer).toHaveBeenCalledTimes(1);
+    a.value = 2;
+    expect(outer).toHaveBeenCalledTimes(1);
+    b.value = 3;
+    expect(outer).toHaveBeenCalledTimes(2);
   });
 });

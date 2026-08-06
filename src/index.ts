@@ -114,7 +114,10 @@ export class Sig<T = unknown> {
     if (!disconnect) {
       const prevScope = SCOPE;
       if (this.#scope) SCOPE = this.#scope;
+      const prevUntrack = UNTRACK;
+      UNTRACK = 0;
       this.#cache = this.#compute?.();
+      UNTRACK = prevUntrack;
       SCOPE = prevScope;
     }
 
